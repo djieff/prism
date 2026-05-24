@@ -2243,10 +2243,16 @@ class MainWindow(QMainWindow):
 
     def _load_ui_icon(self, relative_path: str) -> QIcon | None:
         """Load a UI asset icon from prism.ui package resources."""
-        pixmap = self._load_ui_pixmap(relative_path)
-        if pixmap is None:
+        try:
+            resource = resources.files("prism.ui").joinpath(relative_path)
+            if not resource.is_file():
+                return None
+            icon = QIcon(str(resource))
+            if icon.isNull():
+                return None
+            return icon
+        except Exception:
             return None
-        return QIcon(pixmap)
 
     def _update_frame_controls(self) -> None:
         self._update_frame_controls_for_side("left")
