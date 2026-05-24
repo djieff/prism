@@ -82,7 +82,13 @@ Prism aims to make that process faster and more direct.
 
 # Install
 
-From repository root:
+### Install from PyPI
+
+```powershell
+python -m pip install prism-viewer
+```
+
+### Install for Development:
 
 ```powershell
 python -m pip install -e .
