@@ -100,3 +100,68 @@ def test_main_uses_runtime_sys_argv(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert exc_info.value.code == 0
     assert captured_argv == [["prism", "--demo", "arg"]]
+
+
+@pytest.mark.parametrize(
+    ("platform_name", "expected_desktop", "expected_app_name"),
+    [
+        ("linux", "com.prism.viewer", None),
+        ("darwin", None, "Prism Viewer"),
+        ("win32", None, None),
+    ],
+)
+def test_main_configures_platform_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    platform_name: str,
+    expected_desktop: str | None,
+    expected_app_name: str | None,
+) -> None:
+    timer_state: dict[str, bool] = {"started": False}
+    identity_state: dict[str, str | None] = {
+        "desktop_file_name": None,
+        "application_name": None,
+    }
+
+    class _FakeTimeout:
+        def connect(self, callback) -> None:
+            del callback
+
+    class _FakeTimer:
+        def __init__(self) -> None:
+            self.timeout = _FakeTimeout()
+
+        def setInterval(self, interval: int) -> None:
+            del interval
+
+        def start(self) -> None:
+            timer_state["started"] = True
+
+    class _FakeApp:
+        def __init__(self, argv) -> None:
+            del argv
+
+        def setDesktopFileName(self, value: str) -> None:
+            identity_state["desktop_file_name"] = value
+
+        def setApplicationName(self, value: str) -> None:
+            identity_state["application_name"] = value
+
+        def exec(self) -> int:
+            return 0
+
+    class _FakeWindow:
+        def show(self) -> None:
+            return
+
+    monkeypatch.setattr(prism_main, "QTimer", _FakeTimer)
+    monkeypatch.setattr(prism_main, "QApplication", _FakeApp)
+    monkeypatch.setattr(prism_main, "MainWindow", _FakeWindow)
+    monkeypatch.setattr(prism_main.sys, "platform", platform_name)
+
+    with pytest.raises(SystemExit) as exc_info:
+        prism_main.main()
+
+    assert exc_info.value.code == 0
+    assert timer_state["started"] is True
+    assert identity_state["desktop_file_name"] == expected_desktop
+    assert identity_state["application_name"] == expected_app_name

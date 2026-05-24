@@ -56,11 +56,22 @@ Included package data (from `pyproject.toml`):
 
 Current icon usage:
 - Windows prefers `app_icon.ico` at runtime with PNG fallback in UI loader path.
+- Linux and macOS use PNG runtime window icon loading.
+- Startup sets platform identity hints in `src/prism/main.py`:
+  - Windows AppUserModelID: `com.prism.viewer`
+  - Linux desktop file name: `com.prism.viewer`
+  - macOS application name: `Prism Viewer`
 
 About banner usage:
 - `about_banner.png` is loaded and displayed in `Help -> About Prism Viewer`.
 
-## Notes
+## Platform Packaging Notes
 
-- Editable installs are the primary local-dev workflow.
-- If `prism` command is unavailable, ensure the active shell uses the intended venv.
+### Windows
+- Use a Windows AppUserModelID and `.ico` application icon to ensure the correct taskbar icon and application identity.
+
+### Linux
+- Future packaged builds may provide a `.desktop` launcher for desktop integration and application menus.
+
+### macOS
+- Future packaged builds may include a `.app` bundle and `.icns` application icon for proper Finder and Dock integration.
