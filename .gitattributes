@@ -6,3 +6,11 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.ocio text eol=lf
+
+# LUT / color formats
+*.cube text eol=lf
+*.csp text eol=lf
+*.3dl text eol=lf
+*.lut text eol=lf
+*.spi1d text eol=lf
+*.spi3d text eol=lf
