@@ -74,6 +74,7 @@ from prism.io.ocio_config import (
 )
 from prism.ui.compare_view import CompareView
 from prism.ui.context_variables_dock import ContextVariablesDock
+from prism.ui.lut_inspection_window import LutInspectionWindow
 from prism.ui.status_formatters import panel_frame_suffix, persistent_status_message, side_label
 
 # Layout constants (maintainability-focused; no behavior changes).
@@ -87,6 +88,7 @@ TONE_VALUE_LABEL_MIN_WIDTH = 44
 FRAME_BUTTON_WIDTH = 30
 FRAME_EDIT_WIDTH = 72
 TOP_TOOLBAR_SIDE_GAP = 24
+LUT_FILE_EXTENSIONS = {".cube", ".csp", ".spi1d", ".spi3d", ".3dl", ".lut"}
 
 
 class MainWindow(QMainWindow):
@@ -131,6 +133,7 @@ class MainWindow(QMainWindow):
         self._ocio_context_values: dict[str, str] = {}
         self._hotkeys_action: QAction | None = None
         self._hotkeys_dialog: QDialog | None = None
+        self._lut_inspection_window: LutInspectionWindow | None = None
         self._viewer_background_group: QActionGroup | None = None
         self._persistent_status_message = ""
         self._global_luminance = 1.0
@@ -434,6 +437,10 @@ class MainWindow(QMainWindow):
         context_vars_action.setText("OCIO Context Variables")
         view_menu.addAction(context_vars_action)
 
+        lut_inspection_action = QAction("LUT Inspection", self)
+        lut_inspection_action.triggered.connect(self._show_lut_inspection_window)
+        view_menu.addAction(lut_inspection_action)
+
         background_menu = view_menu.addMenu("Background")
         self._viewer_background_group = QActionGroup(self)
         self._viewer_background_group.setExclusive(True)
@@ -525,8 +532,29 @@ class MainWindow(QMainWindow):
         dialog.raise_()
         dialog.activateWindow()
 
+    def _show_lut_inspection_window(self) -> None:
+        window = self._lut_inspection_window
+        if window is None:
+            window = LutInspectionWindow(self)
+            window.setAttribute(Qt.WA_DeleteOnClose, True)
+            window.destroyed.connect(self._on_lut_inspection_window_destroyed)
+            self._lut_inspection_window = window
+        window.show()
+        window.raise_()
+        window.activateWindow()
+
+    def _show_lut_inspection_window_with_file(self, path: Path) -> None:
+        self._show_lut_inspection_window()
+        window = self._lut_inspection_window
+        if window is None:
+            return
+        window.load_lut_path(path)
+
     def _on_hotkeys_dialog_destroyed(self) -> None:
         self._hotkeys_dialog = None
+
+    def _on_lut_inspection_window_destroyed(self) -> None:
+        self._lut_inspection_window = None
 
     def _show_about_dialog(self) -> None:
         dialog = QDialog(self)
@@ -1495,6 +1523,10 @@ class MainWindow(QMainWindow):
         path = Path(file_path)
         if not path.is_file():
             self._show_temporary_status(f"Drop failed: not a file: {file_path}")
+            return
+        if path.suffix.lower() in LUT_FILE_EXTENSIONS:
+            self._show_lut_inspection_window_with_file(path)
+            self._show_temporary_status(f"LUT loaded in inspector: {path.name}", timeout_ms=1800)
             return
         if path.suffix.lower() == ".ocio":
             self._load_config(file_path)

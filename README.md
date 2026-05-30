@@ -61,6 +61,7 @@ Prism aims to make that process faster and more direct.
 * Inspect pixel values directly in the viewer HUD
 * Adjust exposure and luminance interactively
 * Edit OCIO context variables live
+* Inspect LUT transfer curves in a dedicated modeless LUT window
 * Navigate synchronized A/B views
 * Toggle transform bypass per image
 * Use EXR, DPX, JPG, PNG, TIFF, and other common formats
@@ -250,6 +251,26 @@ Useful when image edges become difficult to read against the viewer background.
 
 ---
 
+# LUT Inspection
+
+Open from:
+
+* `View -> LUT Inspection` or `Drop LUT in main_window`
+
+![LUT_inspector_default.png](docs/images/readme/LUT_inspector_default.png)
+
+Behavior:
+
+* opens as a modeless utility window
+* accepts drag-and-drop LUT files
+* supports `.cube`, `.spi1d`, `.csp`, `.spi3d`, `.lut`, and `.3dl` formats
+* plots LUT curves on an X/Y diagram that scales with window size
+* for 3D `.cube`, displays a neutral-axis projection (`R=G=B` samples)
+* for `.cube`, `DOMAIN_MIN` and `DOMAIN_MAX` must use matching RGB components (mixed per-channel domain values are treated as unsupported)
+
+![LUT_inspector_mix.png](docs/images/readme/LUT_inspector_mix.png)
+---
+
 # Diagnostics
 
 Prism includes a diagnostics window for quickly validating runtime dependencies and OCIO environment state.
@@ -341,6 +362,7 @@ Prism includes sample files to validate setup quickly:
 
 * Sample images: `samples/images/`
 * Sample OCIO config: `samples/ocio_config/`
+* Sample LUTs: `sample/LUTs`
 
 Quick smoke test:
 
@@ -407,7 +429,6 @@ Still-image workflows remain fully functional without them.
 * Vectorscope
 * Chromaticity Diagram and gamut visualization
 * Transform breakdown visualization
-* LUT plotting
 * Nuke integration
 * Resolve integration
 * More Display/View support

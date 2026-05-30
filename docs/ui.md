@@ -12,6 +12,8 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `view_math.py`
 - `context_variables_panel.py`
 - `context_variables_dock.py`
+- `lut_inspection_window.py`
+- `lut_plot_widget.py`
 
 ## Responsibilities
 
@@ -48,6 +50,18 @@ It consumes structured/core state and should not embed OCIO processing logic.
 ### `context_variables_dock.py`
 - `QDockWidget` wrapper for panel integration into `View` menu.
 - Provides floating/toggleable panel behavior.
+
+### `lut_inspection_window.py`
+- Modeless LUT utility window opened from `View -> LUT Inspection`.
+- Handles LUT file drag/drop and optional browse-file selection.
+- Orchestrates LUT loading via `io.lut_loader` and routes parsed data to plot widget.
+- Reports load status/error feedback to the user.
+- For `.cube` files, expects scalar-equivalent RGB domains (`DOMAIN_MIN` and `DOMAIN_MAX` components must match per row); mixed per-channel domain components are treated as unsupported and surfaced as load errors.
+
+### `lut_plot_widget.py`
+- Renders scalable X/Y LUT transfer curves.
+- Draws axes/grid and per-channel curve overlays (RGB when present).
+- Resizes with its parent inspection window.
 
 ## Signal/Data Flow
 
