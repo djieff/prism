@@ -12,6 +12,8 @@
 - `frame_cache.py`
 - `frame_service.py`
 - `ocio_processor.py`
+- `scope_waveform.py`
+- `scope_waveform_science.py`
 
 ## Responsibilities
 
@@ -37,6 +39,24 @@
 ### `ocio_processor.py`
 - Builds OCIO processors from selected input/output colorspace, optional look, and context values.
 - Applies processor transforms to float RGB buffers.
+
+### `scope_waveform.py`
+- Builds deterministic raw R, G, B, and encoded Y' density grids from float RGB
+  analysis buffers.
+- Defaults to BT.709 and accepts explicit BT.2020 selection.
+- Records signal-standard and coefficient provenance in `WaveformTrace`.
+- Keeps the legacy `density_luma` field name for compatibility; its documented
+  meaning is encoded Y' density, not scene-linear luminance.
+
+### `scope_waveform_science.py`
+- Obtains BT.709/BT.2020 encoded-signal weights from Colour's
+  `WEIGHTS_YCBCR` registry.
+- Returns defensive, read-only coefficient arrays.
+- Uses SciPy Gaussian filtering with the locked `(0.5, 0.5)` kernel for
+  presentation copies only.
+- Normalizes filtered R, G, B, and Y' channels with one shared maximum so
+  channel relationships are preserved.
+- Keeps raw waveform density arrays unchanged and UI-independent.
 
 ## Extension Points
 

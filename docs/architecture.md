@@ -30,6 +30,16 @@ Primary runtime flow:
 4. `core.ocio_processor` builds processor using selected colorspaces/look/context.
 5. Processed display buffers are pushed to compare/split views.
 6. UI hover/navigation reads display buffers for HUD and interaction feedback.
+7. An open waveform window reads the per-side float analysis buffers, builds
+   raw density data in `core.scope_waveform`, and prepares filtered rendering
+   copies through `core.scope_waveform_science`.
+
+Waveform boundary notes:
+- the analysis buffer is post-OCIO only when a transform is active;
+- bypass/incomplete-config paths may provide untransformed source data;
+- global exposure/luminance and channel-view controls are applied later during
+  viewer image presentation and are not waveform inputs;
+- OCIO names are not used to infer a Colour signal standard.
 
 Frame flow (multi-frame sources):
 

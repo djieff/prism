@@ -62,6 +62,7 @@ Prism aims to make that process faster and more direct.
 * Adjust exposure and luminance interactively
 * Edit OCIO context variables live
 * Inspect LUT transfer curves in a dedicated modeless LUT window
+* Inspect waveform scopes in a dedicated modeless waveform monitor
 * Navigate synchronized A/B views
 * Toggle transform bypass per image
 * Use EXR, DPX, JPG, PNG, TIFF, and other common formats
@@ -71,13 +72,15 @@ Prism aims to make that process faster and more direct.
 
 # Requirements
 
-* Python 3.11+
+* Python 3.11 through 3.14
 * Runtime packages:
 
   * `PySide6`
   * `OpenImageIO`
   * `OpenColorIO`
   * `numpy`
+  * `scipy` 1.17 or newer, below 2.0
+  * `colour-science` 0.4.7 or newer, below 0.5
 
 ---
 
@@ -271,6 +274,48 @@ Behavior:
 ![LUT_inspector_mix.png](docs/images/readme/LUT_inspector_mix.png)
 ---
 
+# Waveform Monitor
+
+Open from:
+
+* `View -> Monitoring -> Waveform Monitor`
+
+Behavior:
+
+* opens as a modeless utility window
+* inspects each side's float RGB analysis buffer:
+  * post-OCIO output when a transform is active
+  * loaded source data when transform setup is incomplete or bypassed
+  * before global exposure/luminance and channel-view presentation controls
+* source modes mirror main viewer compare naming:
+  * `Full (A)`
+  * `Full (B)`
+  * `Split`
+* source mode is synchronized with main compare mode for supported modes:
+  * changing mode in waveform updates main viewer mode
+  * changing main viewer mode updates waveform mode
+  * opening waveform initializes from current main mode
+* `Wipe` and `Diff` are currently unsupported in waveform mode mapping:
+  * waveform shows blank graphs with an explicit unsupported-mode message
+* signal display options:
+  * `R`
+  * `G`
+  * `B`
+  * `RGB Parade`
+  * `RGB Overlay`
+  * `Y'` with selectable `BT.709` or `BT.2020` encoded-signal weights
+    * defaults to `BT.709`
+    * the standard is selected explicitly and is not inferred from OCIO names
+    * `Y'` is an encoded weighted signal, not scene-linear or absolute luminance
+* applies a small SciPy Gaussian filter to rendering copies for trace
+  readability; raw waveform density data remains unchanged
+* supports drag-and-drop image loading directly from waveform:
+  * `Full (A)` drops load side `A`
+  * `Full (B)` drops load side `B`
+  * `Split` drops route by pane (`left -> A`, `right -> B`)
+
+---
+
 # Diagnostics
 
 Prism includes a diagnostics window for quickly validating runtime dependencies and OCIO environment state.
@@ -425,7 +470,6 @@ Still-image workflows remain fully functional without them.
 
 # Planned Features
 
-* Waveform Monitor
 * Vectorscope
 * Chromaticity Diagram and gamut visualization
 * Transform breakdown visualization
