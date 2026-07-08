@@ -11,7 +11,7 @@ Prism uses setuptools with `pyproject.toml` and `src/` layout discovery.
 Key metadata:
 - project name: `prism-viewer`
 - version source: `prism.__version__` (dynamic)
-- Python requirement: `>=3.11`
+- Python requirement: `>=3.11,<3.15`
 - console script: `prism = prism.main:main`
 
 Runtime dependencies:
@@ -19,6 +19,8 @@ Runtime dependencies:
 - `OpenImageIO`
 - `OpenColorIO`
 - `numpy`
+- `scipy>=1.17,<2`
+- `colour-science>=0.4.7,<0.5`
 
 Install workflow (repo root):
 

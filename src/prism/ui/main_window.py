@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
 from prism import __version__ as prism_version
 from prism.core.frame_service import FrameService
 from prism.core.ocio_processor import apply_ocio_transform, build_ocio_processor
+from prism.core.scope_waveform import WaveformMode
 from prism.core.source_models import create_source_from_path
 from prism.core.ui_tokens import (
     COMPARE_MODES_REQUIRING_BOTH_IMAGES,
@@ -76,6 +77,7 @@ from prism.ui.compare_view import CompareView
 from prism.ui.context_variables_dock import ContextVariablesDock
 from prism.ui.lut_inspection_window import LutInspectionWindow
 from prism.ui.status_formatters import panel_frame_suffix, persistent_status_message, side_label
+from prism.ui.waveform_window import WaveformWindow
 
 # Layout constants (maintainability-focused; no behavior changes).
 ZERO_MARGINS = (0, 0, 0, 0)
@@ -134,6 +136,7 @@ class MainWindow(QMainWindow):
         self._hotkeys_action: QAction | None = None
         self._hotkeys_dialog: QDialog | None = None
         self._lut_inspection_window: LutInspectionWindow | None = None
+        self._waveform_window: WaveformWindow | None = None
         self._viewer_background_group: QActionGroup | None = None
         self._persistent_status_message = ""
         self._global_luminance = 1.0
@@ -440,6 +443,10 @@ class MainWindow(QMainWindow):
         lut_inspection_action = QAction("LUT Inspection", self)
         lut_inspection_action.triggered.connect(self._show_lut_inspection_window)
         view_menu.addAction(lut_inspection_action)
+        monitoring_menu = view_menu.addMenu("Monitoring")
+        waveform_action = QAction("Waveform Monitor", self)
+        waveform_action.triggered.connect(self._show_waveform_window)
+        monitoring_menu.addAction(waveform_action)
 
         background_menu = view_menu.addMenu("Background")
         self._viewer_background_group = QActionGroup(self)
@@ -550,11 +557,68 @@ class MainWindow(QMainWindow):
             return
         window.load_lut_path(path)
 
+    def _show_waveform_window(self) -> None:
+        window = self._waveform_window
+        if window is None:
+            window = WaveformWindow(
+                self,
+                on_drop_file=self._handle_waveform_drop_file,
+                on_source_mode_changed=self._handle_waveform_source_mode_changed,
+            )
+            window.setAttribute(Qt.WA_DeleteOnClose, True)
+            window.destroyed.connect(self._on_waveform_window_destroyed)
+            self._waveform_window = window
+        self._sync_waveform_mode_from_main_if_open()
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        self._update_waveform_window_if_open()
+
     def _on_hotkeys_dialog_destroyed(self) -> None:
         self._hotkeys_dialog = None
 
     def _on_lut_inspection_window_destroyed(self) -> None:
         self._lut_inspection_window = None
+
+    def _on_waveform_window_destroyed(self) -> None:
+        self._waveform_window = None
+
+    def _handle_waveform_drop_file(self, file_path: str, target_side: ViewerSide) -> None:
+        self._handle_dropped_file(file_path, requested_side=target_side)
+
+    def _handle_waveform_source_mode_changed(self, mode: WaveformMode) -> None:
+        if mode == "A":
+            self._activate_compare_mode("full")
+            if self._compare_state.active_side != "left":
+                self._set_active_side("left")
+            return
+        if mode == "B":
+            self._activate_compare_mode("full")
+            if self._compare_state.active_side != "right":
+                self._set_active_side("right")
+            return
+        self._activate_compare_mode("split")
+
+    def _main_view_mode_to_waveform_mode(self) -> WaveformMode | None:
+        mode = self._compare_view_state.mode
+        if mode == "split":
+            return "A|B"
+        if mode == "full":
+            return "A" if self._compare_state.active_side == "left" else "B"
+        return None
+
+    def _sync_waveform_mode_from_main_if_open(self) -> None:
+        window = self._waveform_window
+        if window is None:
+            return
+        if self._compare_view_state.mode in {"wipe", "diff"}:
+            window.set_unsupported_main_mode(self._compare_view_state.mode.capitalize())
+            return
+        window.set_unsupported_main_mode(None)
+        waveform_mode = self._main_view_mode_to_waveform_mode()
+        if waveform_mode is None:
+            return
+        window.set_source_mode(waveform_mode)
 
     def _show_about_dialog(self) -> None:
         dialog = QDialog(self)
@@ -904,6 +968,7 @@ class MainWindow(QMainWindow):
         self._clear_inspector_status()
         self._refresh_processed_view()
         self._set_active_side_status(self._compare_state.active_side)
+        self._sync_waveform_mode_from_main_if_open()
 
     def _on_context_values_changed(self, values: dict[str, str]) -> None:
         self._ocio_context_values = dict(values)
@@ -1624,6 +1689,7 @@ class MainWindow(QMainWindow):
         self._update_placeholder_texts()
         self._update_active_side_ui()
         self._sync_compare_mode_combo_from_state()
+        self._sync_waveform_mode_from_main_if_open()
         self._refresh_side_with_active_status(new_side)
         self._update_frame_controls()
 
@@ -1957,6 +2023,7 @@ class MainWindow(QMainWindow):
         self._sync_split_view_images()
         self._diff_display_image = self._build_diff_image(image_a, image_b)
         self.compare_view.set_diff_image(self._diff_display_image)
+        self._update_waveform_window_if_open()
 
     def _refresh_display_from_cached_buffers(self) -> None:
         for side in ("left", "right"):
@@ -1965,6 +2032,15 @@ class MainWindow(QMainWindow):
                 continue
             self._set_panel_display_image(side, self._display_qimage_from_rgb(buffer))
         self._update_compare_view_images()
+
+    def _update_waveform_window_if_open(self) -> None:
+        window = self._waveform_window
+        if window is None:
+            return
+        window.set_processed_buffers(
+            self._processed_display_buffers["left"],
+            self._processed_display_buffers["right"],
+        )
 
     def _schedule_tone_refresh(self) -> None:
         if self._tone_refresh_timer.isActive():

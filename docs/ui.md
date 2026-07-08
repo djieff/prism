@@ -14,6 +14,8 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `context_variables_dock.py`
 - `lut_inspection_window.py`
 - `lut_plot_widget.py`
+- `waveform_window.py`
+- `waveform_plot_widget.py`
 
 ## Responsibilities
 
@@ -62,6 +64,27 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Renders scalable X/Y LUT transfer curves.
 - Draws axes/grid and per-channel curve overlays (RGB when present).
 - Resizes with its parent inspection window.
+
+### `waveform_window.py`
+- Modeless waveform utility window opened from `View -> Waveform Monitor`.
+- Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
+- Supports explicit `BT.709` and `BT.2020` standards for the encoded `Y'` trace.
+- Defaults to BT.709 and does not infer standards from arbitrary OCIO names.
+- Does not auto-follow active side changes from compare mode.
+- Consumes per-side float analysis buffers from main window and routes waveform
+  data to plot widgets. Buffers are post-OCIO when a transform is active, but
+  may be untransformed in bypass/incomplete-config paths.
+- Analysis occurs before global exposure/luminance and channel-view presentation
+  controls.
+
+### `waveform_plot_widget.py`
+- Renders waveform density heatmaps for RGB channel overlays and encoded `Y'`.
+- Uses SciPy Gaussian filtering with `sigma=(0.5, 0.5)` on rendering copies.
+- Normalizes filtered R, G, B, and Y' together with one shared factor.
+- Caches prepared densities per trace; signal-mode changes reuse the cache.
+- Never mutates the raw density arrays in `WaveformTrace`.
+- Displays empty-state text when no waveform trace is available.
+- Resizes with parent window layout.
 
 ## Signal/Data Flow
 
