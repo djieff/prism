@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
@@ -17,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from prism.core.lut_analysis import LutAnalysisSummary, summarize_lut_samples
 from prism.io.lut_loader import LutLoadError, load_lut_plot_data
 from prism.ui.lut_plot_widget import LutPlotWidget
 
@@ -121,39 +121,21 @@ class LutInspectionWindow(QWidget):
         self._status_label.setStyleSheet("color: #8fdf8f;")
 
     def _build_info_text(self, data) -> str:
-        y = data.y_values
-        if y.size == 0:
+        summary = summarize_lut_samples(
+            data.x_values,
+            data.y_values,
+            channels=data.channels,
+        )
+        if summary is None:
             return "No LUT sample data."
 
-        ch = min(max(int(data.channels), 1), y.shape[1])
-        y_used = y[:, :ch]
-
-        y_min = np.min(y_used, axis=0)
-        y_max = np.max(y_used, axis=0)
-        channel_names = ["R", "G", "B"] if ch > 1 else ["Y"]
-        min_text = ", ".join(
-            f"{channel_names[idx]}={float(y_min[idx]):.4f}" for idx in range(ch)
-        )
-        max_text = ", ".join(
-            f"{channel_names[idx]}={float(y_max[idx]):.4f}" for idx in range(ch)
-        )
-
-        below_zero = bool(np.any(y_used < 0.0))
-        above_one = bool(np.any(y_used > 1.0))
-        clipped = "yes" if (below_zero or above_one) else "no"
-
-        diffs = np.diff(y_used, axis=0)
-        monotonic_channels: list[str] = []
-        for idx in range(ch):
-            monotonic_channels.append("yes" if bool(np.all(diffs[:, idx] >= -1e-6)) else "no")
-        mono_text = ", ".join(f"{channel_names[idx]}={monotonic_channels[idx]}" for idx in range(ch))
-
+        min_text, max_text, clipped, mono_text = self._format_summary_values(summary)
         return "\n".join(
             [
                 f"Format: {data.format.upper()}",
                 f"Source: {data.source_kind}",
-                f"Samples: {data.x_values.shape[0]}",
-                f"Channels: {ch}",
+                f"Samples: {summary.sample_count}",
+                f"Channels: {summary.channel_count}",
                 f"Domain: [{data.domain_min:.6f}, {data.domain_max:.6f}]",
                 f"Output Min: {min_text}",
                 f"Output Max: {max_text}",
@@ -166,6 +148,27 @@ class LutInspectionWindow(QWidget):
                 else []
             )
         )
+
+    def _format_summary_values(self, summary: LutAnalysisSummary) -> tuple[str, str, str, str]:
+        channel_names = ["R", "G", "B"] if summary.channel_count > 1 else ["Y"]
+        min_text = ", ".join(
+            f"{channel_names[idx]}={summary.output_min[idx]:.4f}"
+            for idx in range(summary.channel_count)
+        )
+        max_text = ", ".join(
+            f"{channel_names[idx]}={summary.output_max[idx]:.4f}"
+            for idx in range(summary.channel_count)
+        )
+        clipped = (
+            "yes"
+            if (summary.has_values_below_zero or summary.has_values_above_one)
+            else "no"
+        )
+        mono_text = ", ".join(
+            f"{channel_names[idx]}={'yes' if summary.monotonic_channels[idx] else 'no'}"
+            for idx in range(summary.channel_count)
+        )
+        return min_text, max_text, clipped, mono_text
 
     def _set_info_panel_text(self, text: str) -> None:
         self._info_panel.setPlainText(text)

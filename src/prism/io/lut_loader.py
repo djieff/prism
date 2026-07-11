@@ -8,6 +8,12 @@ from typing import Callable
 
 import numpy as np
 
+from prism.core.lut_interpolation import (
+    evaluate_piecewise_linear,
+    normalize_values_to_unit_from_points,
+    sample_lut3d_trilinear,
+)
+
 
 class LutLoadError(ValueError):
     """Raised when a LUT file cannot be parsed for plotting."""
@@ -399,22 +405,15 @@ def _load_csp_style_3d_cube(
         for i in range(diag_size):
             diag_values[i] = value_array[i, i, i]
     else:
-        diag_values = np.zeros((diag_size, 3), dtype=np.float32)
-        for idx, t in enumerate(x_values):
-            shaper_outputs = [
-                _evaluate_piecewise_linear(channel_prelut_points[channel], float(t))
-                for channel in range(3)
-            ]
-            normalized = [
-                _normalize_to_unit_from_points(channel_prelut_points[channel], shaper_outputs[channel])
-                for channel in range(3)
-            ]
-            diag_values[idx] = _sample_3d_lut_trilinear(
-                value_array,
-                normalized[0],
-                normalized[1],
-                normalized[2],
+        coordinates = np.zeros((diag_size, 3), dtype=np.float32)
+        for channel in range(3):
+            prelut_array = np.asarray(channel_prelut_points[channel], dtype=np.float32)
+            shaper_outputs = evaluate_piecewise_linear(prelut_array, x_values)
+            coordinates[:, channel] = normalize_values_to_unit_from_points(
+                prelut_array,
+                shaper_outputs,
             )
+        diag_values = sample_lut3d_trilinear(value_array, coordinates)
 
     return LutPlotData(
         path=path,
@@ -427,79 +426,6 @@ def _load_csp_style_3d_cube(
         domain_max=domain_max,
         csp_has_shaper=csp_has_shaper,
     )
-
-
-def _evaluate_piecewise_linear(points: list[tuple[float, float]], x: float) -> float:
-    """Evaluate a piecewise-linear function at `x` from ordered `(x, y)` points."""
-    if not points:
-        return x
-    if x <= points[0][0]:
-        return points[0][1]
-    if x >= points[-1][0]:
-        return points[-1][1]
-
-    for idx in range(1, len(points)):
-        x0, y0 = points[idx - 1]
-        x1, y1 = points[idx]
-        if x <= x1:
-            span = x1 - x0
-            if abs(span) < 1e-12:
-                return y1
-            t = (x - x0) / span
-            return y0 + (t * (y1 - y0))
-    return points[-1][1]
-
-
-def _normalize_to_unit_from_points(points: list[tuple[float, float]], value: float) -> float:
-    """Normalize a value to `[0, 1]` using first/last output range from prelut points."""
-    if not points:
-        return max(0.0, min(1.0, value))
-    out_min = points[0][1]
-    out_max = points[-1][1]
-    span = out_max - out_min
-    if abs(span) < 1e-12:
-        return 0.0
-    t = (value - out_min) / span
-    return max(0.0, min(1.0, t))
-
-
-def _sample_3d_lut_trilinear(
-    cube: np.ndarray, nx: float, ny: float, nz: float
-) -> np.ndarray:
-    """Trilinear-sample a `(z, y, x, c)` LUT cube at normalized coordinates."""
-    z_size, y_size, x_size, _channels = cube.shape
-    fx = nx * max(x_size - 1, 1)
-    fy = ny * max(y_size - 1, 1)
-    fz = nz * max(z_size - 1, 1)
-
-    x0 = int(np.floor(fx))
-    y0 = int(np.floor(fy))
-    z0 = int(np.floor(fz))
-    x1 = min(x0 + 1, x_size - 1)
-    y1 = min(y0 + 1, y_size - 1)
-    z1 = min(z0 + 1, z_size - 1)
-
-    tx = fx - x0
-    ty = fy - y0
-    tz = fz - z0
-
-    c000 = cube[z0, y0, x0]
-    c100 = cube[z0, y0, x1]
-    c010 = cube[z0, y1, x0]
-    c110 = cube[z0, y1, x1]
-    c001 = cube[z1, y0, x0]
-    c101 = cube[z1, y0, x1]
-    c011 = cube[z1, y1, x0]
-    c111 = cube[z1, y1, x1]
-
-    c00 = c000 * (1.0 - tx) + (c100 * tx)
-    c10 = c010 * (1.0 - tx) + (c110 * tx)
-    c01 = c001 * (1.0 - tx) + (c101 * tx)
-    c11 = c011 * (1.0 - tx) + (c111 * tx)
-
-    c0 = c00 * (1.0 - ty) + (c10 * ty)
-    c1 = c01 * (1.0 - ty) + (c11 * ty)
-    return c0 * (1.0 - tz) + (c1 * tz)
 
 
 def _extract_neutral_axis(

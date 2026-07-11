@@ -57,12 +57,19 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Modeless LUT utility window opened from `View -> LUT Inspection`.
 - Handles LUT file drag/drop and optional browse-file selection.
 - Orchestrates LUT loading via `io.lut_loader` and routes parsed data to plot widget.
+- Formats summary metrics produced by `core.lut_analysis`, including sample
+  count, channel count, output min/max, out-of-range state, monotonicity, and
+  CSP shaper state when present.
 - Reports load status/error feedback to the user.
 - For `.cube` files, expects scalar-equivalent RGB domains (`DOMAIN_MIN` and `DOMAIN_MAX` components must match per row); mixed per-channel domain components are treated as unsupported and surfaced as load errors.
+- Does not present Colour/Delta E metrics until the Inspector has an explicit
+  colourspace/comparison assumption to show to the user.
 
 ### `lut_plot_widget.py`
 - Renders scalable X/Y LUT transfer curves.
 - Draws axes/grid and per-channel curve overlays (RGB when present).
+- Renders only the `LutPlotData` curves supplied by the loader; it does not own
+  parsing, summary analysis, interpolation, or colour science decisions.
 - Resizes with its parent inspection window.
 
 ### `waveform_window.py`

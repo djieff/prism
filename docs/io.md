@@ -11,6 +11,7 @@
 - `image_loader.py`
 - `movie_loader.py`
 - `ocio_config.py`
+- `lut_loader.py`
 
 ## Responsibilities
 
@@ -32,6 +33,17 @@
 ### `ocio_config.py`
 - Loads OCIO config files.
 - Enumerates colorspaces, looks, and config-declared context variables/defaults.
+
+### `lut_loader.py`
+- Loads LUT plot data for the LUT Inspector.
+- Supports `.cube`, `.csp`, `.spi1d`, `.spi3d`, `.3dl`, and Houdini `.lut`
+  files.
+- Returns `LutPlotData` for UI plotting and core summary analysis.
+- Keeps parsing and format validation in `io`; reusable analysis and
+  interpolation helpers live in `core`.
+- Uses direct red-fastest lattice indexing for exact neutral-axis extraction
+  where interpolation is unnecessary.
+- Delegates shaped CSP-style 3D sampling to `core.lut_interpolation`.
 
 ## Environment Sensitivity
 
