@@ -268,8 +268,19 @@ Behavior:
 * accepts drag-and-drop LUT files
 * supports `.cube`, `.spi1d`, `.csp`, `.spi3d`, `.lut`, and `.3dl` formats
 * plots LUT curves on an X/Y diagram that scales with window size
-* for 3D `.cube`, displays a neutral-axis projection (`R=G=B` samples)
+* for 3D LUTs, displays a neutral-axis projection (`R=G=B` samples)
 * for `.cube`, `DOMAIN_MIN` and `DOMAIN_MAX` must use matching RGB components (mixed per-channel domain values are treated as unsupported)
+* reports summary metrics including sample count, channel count, output
+  min/max, out-of-range status, monotonicity, and CSP shaper status when
+  available
+* keeps summary analysis in core helpers and rendering in the UI layer
+* uses SciPy-backed trilinear sampling for shaped CSP-style 3D LUT
+  neutral-axis inspection, while direct lattice extraction is preserved for
+  unshaped 3D LUT neutral axes
+* does not currently display Colour/Delta E metrics; arbitrary LUT files do
+  not provide a reliable source/target colourspace contract, so perceptual
+  metrics are deferred until a dedicated colour-metrics workflow can state its
+  assumptions explicitly
 
 ![LUT_inspector_mix.png](docs/images/readme/LUT_inspector_mix.png)
 ---

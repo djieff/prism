@@ -122,6 +122,47 @@ class LutLoaderTests(unittest.TestCase):
             self.assertEqual(data.x_values.shape[0], 4)
             self.assertEqual(data.y_values.shape, (4, 3))
 
+    def test_loads_synthetic_shaped_csp_with_interpolated_neutral_axis(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            lut_path = Path(tmp) / "shaped.csp"
+            rows = ["CSPLUTV100", "3D"]
+            rows.extend(
+                [
+                    "2",
+                    "0 1",
+                    "-0.5 1.5",
+                    "2",
+                    "0 1",
+                    "0 1",
+                    "2",
+                    "0 1",
+                    "0 1",
+                    "3 3 3",
+                ]
+            )
+            for z in range(3):
+                for y in range(3):
+                    for x in range(3):
+                        rows.append(f"{x / 2.0:.1f} {y / 2.0:.1f} {z / 2.0:.1f}")
+            lut_path.write_text("\n".join(rows), encoding="utf-8")
+
+            data = load_lut_plot_data(lut_path)
+
+            self.assertEqual(data.format, "csp")
+            self.assertEqual(data.source_kind, "3d_neutral_axis")
+            self.assertTrue(data.csp_has_shaper)
+            self.assertEqual(data.x_values.shape[0], 3)
+            self.assertEqual(data.y_values.shape, (3, 3))
+            self.assertTrue(
+                (abs(data.y_values[0] - [0.0, 0.0, 0.0]) < 1e-6).all()
+            )
+            self.assertTrue(
+                (abs(data.y_values[1] - [0.5, 0.5, 0.5]) < 1e-6).all()
+            )
+            self.assertTrue(
+                (abs(data.y_values[2] - [1.0, 1.0, 1.0]) < 1e-6).all()
+            )
+
     def test_raises_for_unsupported_extension(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             lut_path = Path(tmp) / "file.spi3d"

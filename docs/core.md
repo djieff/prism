@@ -12,6 +12,8 @@
 - `frame_cache.py`
 - `frame_service.py`
 - `ocio_processor.py`
+- `lut_analysis.py`
+- `lut_interpolation.py`
 - `scope_waveform.py`
 - `scope_waveform_science.py`
 
@@ -40,6 +42,25 @@
 - Builds OCIO processors from selected input/output colorspace, optional look, and context values.
 - Applies processor transforms to float RGB buffers.
 
+### `lut_analysis.py`
+- Computes UI-agnostic LUT Inspector summary metrics from plotted sample data.
+- Reports sample count, effective channel count, per-channel output min/max,
+  values outside `[0, 1]`, and per-channel monotonicity.
+- Keeps numerical summary behavior out of Qt widgets.
+
+### `lut_interpolation.py`
+- Provides reusable LUT interpolation helpers for inspection workflows.
+- Evaluates 1D piecewise-linear prelut mappings with explicit endpoint
+  clamping.
+- Normalizes shaped prelut outputs to unit cube coordinates with explicit
+  clamping.
+- Uses SciPy `RegularGridInterpolator` behind a Prism helper for 3D LUT
+  trilinear sampling.
+- Public sampling coordinates are normalized `(x, y, z)` while stored cube data
+  remains `(z, y, x, channels)`.
+- Direct neutral-axis extraction remains preferred when exact lattice samples
+  are available and interpolation is unnecessary.
+
 ### `scope_waveform.py`
 - Builds deterministic raw R, G, B, and encoded Y' density grids from float RGB
   analysis buffers.
@@ -57,6 +78,15 @@
 - Normalizes filtered R, G, B, and Y' channels with one shared maximum so
   channel relationships are preserved.
 - Keeps raw waveform density arrays unchanged and UI-independent.
+
+## Colour Metrics Deferral
+
+Colour Science is available as a Prism dependency, but LUT Inspector does not
+currently expose Delta E or other perceptual LUT metrics. Arbitrary LUT files do
+not reliably declare source colourspace, target colourspace, transfer encoding,
+viewing condition, or creative/technical intent. Any Colour-backed LUT metric
+must therefore be introduced by a separate plan with an explicit colourspace and
+comparison contract.
 
 ## Extension Points
 
