@@ -102,6 +102,23 @@ def test_main_uses_runtime_sys_argv(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured_argv == [["prism", "--demo", "arg"]]
 
 
+def test_main_runs_frozen_smoke_and_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def _fake_smoke() -> int:
+        calls.append("smoke")
+        return 0
+
+    monkeypatch.setattr(prism_main, "_run_frozen_smoke", _fake_smoke)
+    monkeypatch.setattr(prism_main.sys, "argv", ["prism", prism_main.FROZEN_SMOKE_ARG])
+
+    with pytest.raises(SystemExit) as exc_info:
+        prism_main.main()
+
+    assert exc_info.value.code == 0
+    assert calls == ["smoke"]
+
+
 @pytest.mark.parametrize(
     ("platform_name", "expected_desktop", "expected_app_name"),
     [
