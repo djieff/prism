@@ -14,6 +14,7 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `context_variables_dock.py`
 - `lut_inspection_window.py`
 - `lut_plot_widget.py`
+- `lut_volume_widget.py`
 - `waveform_window.py`
 - `waveform_plot_widget.py`
 
@@ -56,7 +57,11 @@ It consumes structured/core state and should not embed OCIO processing logic.
 ### `lut_inspection_window.py`
 - Modeless LUT utility window opened from `View -> LUT Inspection`.
 - Handles LUT file drag/drop and optional browse-file selection.
-- Orchestrates LUT loading via `io.lut_loader` and routes parsed data to plot widget.
+- Orchestrates LUT loading via `io.lut_loader` and routes parsed data to the
+  curve and volume widgets.
+- Presents `Curves` and `Volume` tabs.
+- Hosts Volume controls for projection mode, point-position mode, and
+  neutral-axis visibility.
 - Formats summary metrics produced by `core.lut_analysis`, including sample
   count, channel count, output min/max, out-of-range state, monotonicity, and
   CSP shaper state when present.
@@ -71,6 +76,22 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Renders only the `LutPlotData` curves supplied by the loader; it does not own
   parsing, summary analysis, interpolation, or colour science decisions.
 - Resizes with its parent inspection window.
+
+### `lut_volume_widget.py`
+- Renders projected 3D LUT volume previews as a QPainter point cloud.
+- Supports projection modes:
+  - `RGB isometric`
+  - `RG plane`
+  - `RB plane`
+  - `GB plane`
+- Supports point positions from transformed output RGB values or the original
+  input lattice.
+- Draws plane-axis letters for direct channel projections.
+- Draws an optional neutral-axis overlay based on the input grayscale diagonal.
+- Keeps rendering bounded through the projection sample limit reported in the
+  widget status text.
+- Consumes projected data from `core.lut_volume_projection`; it does not parse
+  LUT files or own sampling rules.
 
 ### `waveform_window.py`
 - Modeless waveform utility window opened from `View -> Waveform Monitor`.

@@ -112,6 +112,32 @@ def project_lut_volume(
     )
 
 
+def select_neutral_axis_sample_mask(
+    sample_indices: np.ndarray,
+    *,
+    size_x: int,
+    size_y: int,
+    size_z: int,
+) -> np.ndarray:
+    """Return a boolean mask selecting sampled points on the neutral input axis."""
+    indices = np.asarray(sample_indices, dtype=np.int64)
+    if indices.ndim != 1:
+        raise ValueError("sample indices must be a 1D array")
+    if size_x <= 0 or size_y <= 0 or size_z <= 0:
+        raise ValueError("volume dimensions must be positive")
+    if size_x != size_y or size_y != size_z:
+        return np.zeros(indices.shape, dtype=np.bool_)
+
+    neutral_indices = np.asarray(
+        [
+            (axis_index * size_y * size_x) + (axis_index * size_x) + axis_index
+            for axis_index in range(size_x)
+        ],
+        dtype=np.int64,
+    )
+    return np.isin(indices, neutral_indices)
+
+
 def _validated_volume_values(values: np.ndarray) -> np.ndarray:
     volume = np.asarray(values, dtype=np.float32)
     if volume.ndim != 4 or volume.shape[3] != 3:

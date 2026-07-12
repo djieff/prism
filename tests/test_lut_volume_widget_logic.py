@@ -38,6 +38,7 @@ def _widget_stub() -> LutVolumeWidget:
     widget._projection_mode = "RGB isometric"
     widget._sample_limit = 50_000
     widget._use_output_positions = True
+    widget._show_neutral_axis = True
     widget._error_text = None
     return widget
 
@@ -102,7 +103,17 @@ def test_status_text_reports_empty_and_projected_states() -> None:
         mode="RGB isometric",
     )
 
-    assert widget.status_text() == "Volume: 2x2x2 | shown: 8/8 | mode: RGB isometric"
+    assert (
+        widget.status_text()
+        == "Volume: 2x2x2 | shown: 8/8 | projection: RGB isometric | position: Output cloud"
+    )
+
+    widget._use_output_positions = False
+
+    assert (
+        widget.status_text()
+        == "Volume: 2x2x2 | shown: 8/8 | projection: RGB isometric | position: Input lattice"
+    )
 
 
 def test_set_sample_limit_rejects_non_positive_values() -> None:
@@ -110,6 +121,30 @@ def test_set_sample_limit_rejects_non_positive_values() -> None:
 
     with pytest.raises(ValueError, match="sample_limit"):
         widget.set_sample_limit(0)
+
+
+def test_set_show_neutral_axis_updates_without_rebuilding_projection(monkeypatch) -> None:
+    widget = _widget_stub()
+    projection = LutVolumeProjection(
+        xy=np.zeros((1, 2), dtype=np.float32),
+        colors_rgb=np.zeros((1, 3), dtype=np.float32),
+        sample_indices=np.asarray([0], dtype=np.int64),
+        total_point_count=1,
+        projected_point_count=1,
+        mode="RGB isometric",
+    )
+    widget._projection = projection
+    rebuild_calls: list[None] = []
+    update_calls: list[None] = []
+    monkeypatch.setattr(widget, "_rebuild_projection", lambda: rebuild_calls.append(None))
+    monkeypatch.setattr(widget, "update", lambda: update_calls.append(None))
+
+    widget.set_show_neutral_axis(False)
+
+    assert widget._show_neutral_axis is False
+    assert widget._projection is projection
+    assert rebuild_calls == []
+    assert update_calls == [None]
 
 
 def test_plot_rect_is_centered_square(monkeypatch) -> None:
@@ -123,3 +158,19 @@ def test_plot_rect_is_centered_square(monkeypatch) -> None:
     assert rect.width() == 436.0
     assert rect.left() == 297.0
     assert rect.top() == 30.0
+
+
+def test_axis_labels_report_plane_axes_only() -> None:
+    widget = _widget_stub()
+
+    widget._projection_mode = "RGB isometric"
+    assert widget._axis_labels() is None
+
+    widget._projection_mode = "RG plane"
+    assert widget._axis_labels() == ("G", "R")
+
+    widget._projection_mode = "RB plane"
+    assert widget._axis_labels() == ("B", "R")
+
+    widget._projection_mode = "GB plane"
+    assert widget._axis_labels() == ("B", "G")

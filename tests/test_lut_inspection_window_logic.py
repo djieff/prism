@@ -34,9 +34,37 @@ class _PlotStub:
 class _VolumeStub:
     def __init__(self) -> None:
         self.data = "unset"
+        self.projection_modes: list[str] = []
+        self.position_modes: list[bool] = []
+        self.neutral_axis_modes: list[bool] = []
 
     def set_volume_data(self, value) -> None:
         self.data = value
+
+    def set_projection_mode(self, value: str) -> None:
+        self.projection_modes.append(value)
+
+    def set_use_output_positions(self, value: bool) -> None:
+        self.position_modes.append(value)
+
+    def set_show_neutral_axis(self, value: bool) -> None:
+        self.neutral_axis_modes.append(value)
+
+
+class _ComboStub:
+    def __init__(self, data) -> None:
+        self._data = data
+
+    def currentData(self):
+        return self._data
+
+
+class _CheckStub:
+    def __init__(self, checked: bool) -> None:
+        self._checked = checked
+
+    def isChecked(self) -> bool:
+        return self._checked
 
 
 class _UrlStub:
@@ -78,6 +106,9 @@ def _make_window() -> LutInspectionWindow:
     window = LutInspectionWindow.__new__(LutInspectionWindow)
     window._plot_widget = _PlotStub()
     window._volume_widget = _VolumeStub()
+    window._volume_projection_combo = _ComboStub("RG plane")
+    window._volume_position_combo = _ComboStub(False)
+    window._volume_neutral_axis_checkbox = _CheckStub(True)
     window._file_label = _LabelStub()
     window._status_label = _LabelStub()
     window._last_info_text = None
@@ -179,6 +210,30 @@ def test_load_lut_error_clears_plot_and_sets_error_status(monkeypatch) -> None:
     assert window._last_info_text == ""
     assert window._status_label.text == "Failed to load LUT: bad lut"
     assert window._status_label.style == "color: #ff8f8f;"
+
+
+def test_volume_projection_control_updates_volume_widget() -> None:
+    window = _make_window()
+
+    window._on_volume_projection_changed()
+
+    assert window._volume_widget.projection_modes == ["RG plane"]
+
+
+def test_volume_position_control_updates_volume_widget() -> None:
+    window = _make_window()
+
+    window._on_volume_position_changed()
+
+    assert window._volume_widget.position_modes == [False]
+
+
+def test_volume_neutral_axis_control_updates_volume_widget() -> None:
+    window = _make_window()
+
+    window._on_volume_neutral_axis_changed()
+
+    assert window._volume_widget.neutral_axis_modes == [True]
 
 
 def test_load_entrypoints_delegate_to_common_loader_path(monkeypatch) -> None:

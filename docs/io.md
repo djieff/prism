@@ -39,11 +39,14 @@
 - Supports `.cube`, `.csp`, `.spi1d`, `.spi3d`, `.3dl`, and Houdini `.lut`
   files.
 - Returns `LutPlotData` for UI plotting and core summary analysis.
+- Returns `LutVolumeData` for supported 3D LUT volume previews.
 - Keeps parsing and format validation in `io`; reusable analysis and
   interpolation helpers live in `core`.
 - Uses direct red-fastest lattice indexing for exact neutral-axis extraction
   where interpolation is unnecessary.
 - Delegates shaped CSP-style 3D sampling to `core.lut_interpolation`.
+- Keeps volume data stored as `(z, y, x, 3)` arrays for downstream projection
+  helpers.
 
 ## Environment Sensitivity
 

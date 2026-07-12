@@ -12,6 +12,7 @@ from prism.core.lut_volume_projection import (
     build_lut_volume_point_cloud,
     project_lut_volume,
     project_lut_volume_point_cloud,
+    select_neutral_axis_sample_mask,
 )
 from prism.io.lut_loader import load_lut_volume_data
 
@@ -104,6 +105,63 @@ def test_project_lut_volume_can_project_input_lattice_positions() -> None:
 
     np.testing.assert_allclose(projection.xy[1], [1.0, 0.0])
     np.testing.assert_allclose(projection.colors_rgb[1], [0.25, 0.25, 0.25])
+
+
+def test_select_neutral_axis_sample_mask_selects_cubic_diagonal() -> None:
+    mask = select_neutral_axis_sample_mask(
+        np.arange(27, dtype=np.int64),
+        size_x=3,
+        size_y=3,
+        size_z=3,
+    )
+
+    assert mask.tolist() == [
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+
+
+def test_select_neutral_axis_sample_mask_handles_decimated_and_noncubic_samples() -> None:
+    mask = select_neutral_axis_sample_mask(
+        np.asarray([0, 7, 13, 20, 26], dtype=np.int64),
+        size_x=3,
+        size_y=3,
+        size_z=3,
+    )
+    np.testing.assert_array_equal(mask, [True, False, True, False, True])
+
+    noncubic_mask = select_neutral_axis_sample_mask(
+        np.arange(8, dtype=np.int64),
+        size_x=2,
+        size_y=2,
+        size_z=3,
+    )
+    assert not bool(noncubic_mask.any())
 
 
 def test_project_lut_volume_rejects_invalid_shapes_and_values() -> None:

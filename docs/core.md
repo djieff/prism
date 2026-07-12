@@ -14,6 +14,7 @@
 - `ocio_processor.py`
 - `lut_analysis.py`
 - `lut_interpolation.py`
+- `lut_volume_projection.py`
 - `scope_waveform.py`
 - `scope_waveform_science.py`
 
@@ -60,6 +61,18 @@
   remains `(z, y, x, channels)`.
 - Direct neutral-axis extraction remains preferred when exact lattice samples
   are available and interpolation is unnecessary.
+
+### `lut_volume_projection.py`
+- Builds deterministic 3D LUT point-cloud samples from stored `(z, y, x, 3)`
+  volume data.
+- Projects sampled RGB points into normalized 2D coordinates for the UI Volume
+  view.
+- Supports `RGB isometric`, `RG plane`, `RB plane`, and `GB plane` projections.
+- Supports output-cloud positions and input-lattice positions.
+- Applies a deterministic sample cap for large LUT previews so UI rendering
+  stays responsive.
+- Selects neutral-axis samples from input lattice diagonal indices for the UI
+  overlay; this keeps the reference stable even when output RGB is warped.
 
 ### `scope_waveform.py`
 - Builds deterministic raw R, G, B, and encoded Y' density grids from float RGB

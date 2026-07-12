@@ -11,6 +11,7 @@ from prism.core.lut_volume_projection import (
     LutVolumeProjection,
     VolumeProjectionMode,
     project_lut_volume,
+    select_neutral_axis_sample_mask,
 )
 from prism.io.lut_loader import LutVolumeData
 
@@ -25,6 +26,7 @@ class LutVolumeWidget(QWidget):
         self._projection_mode: VolumeProjectionMode = "RGB isometric"
         self._sample_limit = DEFAULT_VOLUME_SAMPLE_LIMIT
         self._use_output_positions = True
+        self._show_neutral_axis = True
         self._error_text: str | None = None
         self.setMinimumSize(480, 320)
 
@@ -60,6 +62,13 @@ class LutVolumeWidget(QWidget):
         self._rebuild_projection()
         self.update()
 
+    def set_show_neutral_axis(self, enabled: bool) -> None:
+        """Choose whether neutral-axis samples are highlighted over the point cloud."""
+        if self._show_neutral_axis == enabled:
+            return
+        self._show_neutral_axis = enabled
+        self.update()
+
     def status_text(self) -> str:
         """Return a concise human-readable projection status."""
         if self._error_text is not None:
@@ -69,7 +78,8 @@ class LutVolumeWidget(QWidget):
         return (
             f"Volume: {self._volume_data.size_x}x{self._volume_data.size_y}x{self._volume_data.size_z} "
             f"| shown: {self._projection.projected_point_count}/{self._projection.total_point_count} "
-            f"| mode: {self._projection.mode}"
+            f"| projection: {self._projection.mode} "
+            f"| position: {self._position_label()}"
         )
 
     def paintEvent(self, event: QPaintEvent) -> None:
@@ -89,6 +99,7 @@ class LutVolumeWidget(QWidget):
             return
 
         self._draw_points(painter, plot_rect, self._projection)
+        self._draw_neutral_axis(painter, plot_rect, self._projection)
         self._draw_status(painter, plot_rect)
 
     def _rebuild_projection(self) -> None:
@@ -105,6 +116,9 @@ class LutVolumeWidget(QWidget):
             )
         except ValueError as exc:
             self._error_text = f"Volume unavailable: {exc}"
+
+    def _position_label(self) -> str:
+        return "Output cloud" if self._use_output_positions else "Input lattice"
 
     def _draw_frame(self, painter: QPainter, rect: QRectF) -> None:
         painter.save()
@@ -124,6 +138,13 @@ class LutVolumeWidget(QWidget):
         painter.setPen(QPen(QColor(180, 180, 180), 1))
         painter.drawText(int(rect.left()), int(rect.bottom()) + 18, "RGB cube projection")
         painter.restore()
+
+        axis_labels = self._axis_labels()
+        if axis_labels is not None:
+            y_label, x_label = axis_labels
+            painter.setPen(QPen(QColor(230, 230, 230), 1))
+            painter.drawText(QPointF(rect.left() - 24.0, rect.top() + 8.0), y_label)
+            painter.drawText(QPointF(rect.right() + 10.0, rect.bottom() + 2.0), x_label)
 
     def _draw_points(
         self,
@@ -154,6 +175,31 @@ class LutVolumeWidget(QWidget):
             )
             painter.drawPoint(QPointF(px, py))
 
+    def _draw_neutral_axis(
+        self,
+        painter: QPainter,
+        rect: QRectF,
+        projection: LutVolumeProjection,
+    ) -> None:
+        if not self._show_neutral_axis or self._volume_data is None:
+            return
+        neutral_mask = select_neutral_axis_sample_mask(
+            projection.sample_indices,
+            size_x=self._volume_data.size_x,
+            size_y=self._volume_data.size_y,
+            size_z=self._volume_data.size_z,
+        )
+        if not bool(neutral_mask.any()):
+            return
+
+        painter.save()
+        painter.setPen(QPen(QColor(255, 255, 255, 235), 1.6))
+        for xy in projection.xy[neutral_mask]:
+            px = rect.left() + (rect.width() * float(xy[0]))
+            py = rect.bottom() - (rect.height() * float(xy[1]))
+            painter.drawEllipse(QPointF(px, py), 4.0, 4.0)
+        painter.restore()
+
     def _draw_status(self, painter: QPainter, rect: QRectF) -> None:
         painter.setPen(QPen(QColor(160, 220, 160), 1))
         painter.drawText(int(rect.left()), int(rect.top()) - 8, self.status_text())
@@ -174,3 +220,12 @@ class LutVolumeWidget(QWidget):
             side,
             side,
         )
+
+    def _axis_labels(self) -> tuple[str, str] | None:
+        if self._projection_mode == "RG plane":
+            return ("G", "R")
+        if self._projection_mode == "RB plane":
+            return ("B", "R")
+        if self._projection_mode == "GB plane":
+            return ("B", "G")
+        return None

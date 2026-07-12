@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -18,9 +21,22 @@ from PySide6.QtWidgets import (
 )
 
 from prism.core.lut_analysis import LutAnalysisSummary, summarize_lut_samples
-from prism.io.lut_loader import LutLoadError, LutPlotData, LutVolumeData, load_lut_inspection_data
+from prism.core.lut_volume_projection import VolumeProjectionMode
+from prism.io.lut_loader import (
+    LutLoadError,
+    LutPlotData,
+    LutVolumeData,
+    load_lut_inspection_data,
+)
 from prism.ui.lut_plot_widget import LutPlotWidget
 from prism.ui.lut_volume_widget import LutVolumeWidget
+
+VOLUME_PROJECTION_MODES: tuple[VolumeProjectionMode, ...] = (
+    "RGB isometric",
+    "RG plane",
+    "RB plane",
+    "GB plane",
+)
 
 
 class LutInspectionWindow(QWidget):
@@ -48,9 +64,44 @@ class LutInspectionWindow(QWidget):
 
         self._view_tabs = QTabWidget(self)
         self._plot_widget = LutPlotWidget(self)
+        self._volume_tab = QWidget(self)
+        volume_layout = QVBoxLayout(self._volume_tab)
+        volume_layout.setContentsMargins(0, 0, 0, 0)
+        volume_layout.setSpacing(6)
+
+        volume_controls = QHBoxLayout()
+        volume_controls.addWidget(QLabel("Projection", self._volume_tab))
+        self._volume_projection_combo = QComboBox(self._volume_tab)
+        for mode in VOLUME_PROJECTION_MODES:
+            self._volume_projection_combo.addItem(mode, mode)
+        self._volume_projection_combo.currentIndexChanged.connect(
+            self._on_volume_projection_changed
+        )
+        volume_controls.addWidget(self._volume_projection_combo)
+
+        volume_controls.addWidget(QLabel("Position", self._volume_tab))
+        self._volume_position_combo = QComboBox(self._volume_tab)
+        self._volume_position_combo.addItem("Output cloud", True)
+        self._volume_position_combo.addItem("Input lattice", False)
+        self._volume_position_combo.currentIndexChanged.connect(
+            self._on_volume_position_changed
+        )
+        volume_controls.addWidget(self._volume_position_combo)
+
+        self._volume_neutral_axis_checkbox = QCheckBox("Show neutral axis", self._volume_tab)
+        self._volume_neutral_axis_checkbox.setChecked(True)
+        self._volume_neutral_axis_checkbox.stateChanged.connect(
+            self._on_volume_neutral_axis_changed
+        )
+        volume_controls.addWidget(self._volume_neutral_axis_checkbox)
+        volume_controls.addStretch(1)
+        volume_layout.addLayout(volume_controls)
+
         self._volume_widget = LutVolumeWidget(self)
+        volume_layout.addWidget(self._volume_widget, 1)
+
         self._view_tabs.addTab(self._plot_widget, "Curves")
-        self._view_tabs.addTab(self._volume_widget, "Volume")
+        self._view_tabs.addTab(self._volume_tab, "Volume")
         root.addWidget(self._view_tabs, 1)
 
         self._info_panel = QPlainTextEdit(self)
@@ -100,6 +151,19 @@ class LutInspectionWindow(QWidget):
     def load_lut_path(self, path: Path) -> None:
         """Load a LUT file path into the inspector."""
         self._load_lut(path)
+
+    def _on_volume_projection_changed(self) -> None:
+        mode = cast(VolumeProjectionMode, self._volume_projection_combo.currentData())
+        self._volume_widget.set_projection_mode(mode)
+
+    def _on_volume_position_changed(self) -> None:
+        use_output_positions = bool(self._volume_position_combo.currentData())
+        self._volume_widget.set_use_output_positions(use_output_positions)
+
+    def _on_volume_neutral_axis_changed(self, _state: int | None = None) -> None:
+        self._volume_widget.set_show_neutral_axis(
+            self._volume_neutral_axis_checkbox.isChecked()
+        )
 
     def _load_lut(self, path: Path) -> None:
         try:
