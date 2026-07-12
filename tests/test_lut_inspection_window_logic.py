@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from prism.io.lut_loader import LutLoadError, LutPlotData
+from prism.io.lut_loader import LutInspectionData, LutLoadError, LutPlotData, LutVolumeData
 from prism.ui import lut_inspection_window as lut_window_module
 from prism.ui.lut_inspection_window import LutInspectionWindow
 
@@ -28,6 +28,14 @@ class _PlotStub:
         self.data = "unset"
 
     def set_plot_data(self, value) -> None:
+        self.data = value
+
+
+class _VolumeStub:
+    def __init__(self) -> None:
+        self.data = "unset"
+
+    def set_volume_data(self, value) -> None:
         self.data = value
 
 
@@ -69,6 +77,7 @@ class _DropEventStub:
 def _make_window() -> LutInspectionWindow:
     window = LutInspectionWindow.__new__(LutInspectionWindow)
     window._plot_widget = _PlotStub()
+    window._volume_widget = _VolumeStub()
     window._file_label = _LabelStub()
     window._status_label = _LabelStub()
     window._last_info_text = None
@@ -95,19 +104,62 @@ def _sample_plot_data(path: Path) -> LutPlotData:
     )
 
 
+def _sample_volume_data(path: Path) -> LutVolumeData:
+    values = np.zeros((2, 2, 2, 3), dtype=np.float32)
+    return LutVolumeData(
+        path=path,
+        format="csp",
+        size_x=2,
+        size_y=2,
+        size_z=2,
+        values=values,
+        domain_min=(0.0, 0.0, 0.0),
+        domain_max=(1.0, 1.0, 1.0),
+    )
+
+
 def test_load_lut_success_updates_plot_info_and_status(monkeypatch) -> None:
     window = _make_window()
     path = Path("example.csp")
-    data = _sample_plot_data(path)
-    monkeypatch.setattr(lut_window_module, "load_lut_plot_data", lambda _path: data)
+    plot = _sample_plot_data(path)
+    volume = _sample_volume_data(path)
+    data = LutInspectionData(plot=plot, volume=volume)
+    monkeypatch.setattr(lut_window_module, "load_lut_inspection_data", lambda _path: data)
 
     window._load_lut(path)
 
-    assert window._plot_widget.data is data
+    assert window._plot_widget.data is plot
+    assert window._volume_widget.data is volume
     assert window._file_label.text == str(path)
     assert "Format: CSP" in window._last_info_text
+    assert "3D Size: 2 x 2 x 2" in window._last_info_text
     assert window._status_label.text.startswith("Loaded CSP")
+    assert "volume: 2x2x2" in window._status_label.text
     assert window._status_label.style == "color: #8fdf8f;"
+
+
+def test_load_lut_success_with_1d_data_marks_volume_unavailable(monkeypatch) -> None:
+    window = _make_window()
+    path = Path("example.spi1d")
+    plot = LutPlotData(
+        path=path,
+        format="spi1d",
+        source_kind="1d",
+        channels=1,
+        x_values=np.asarray([0.0, 1.0], dtype=np.float32),
+        y_values=np.asarray([[0.0], [1.0]], dtype=np.float32),
+        domain_min=0.0,
+        domain_max=1.0,
+    )
+    data = LutInspectionData(plot=plot, volume=None)
+    monkeypatch.setattr(lut_window_module, "load_lut_inspection_data", lambda _path: data)
+
+    window._load_lut(path)
+
+    assert window._plot_widget.data is plot
+    assert window._volume_widget.data is None
+    assert "Volume: unavailable" in window._last_info_text
+    assert "volume: unavailable" in window._status_label.text
 
 
 def test_load_lut_error_clears_plot_and_sets_error_status(monkeypatch) -> None:
@@ -117,11 +169,12 @@ def test_load_lut_error_clears_plot_and_sets_error_status(monkeypatch) -> None:
     def _raise(_path: Path):
         raise LutLoadError("bad lut")
 
-    monkeypatch.setattr(lut_window_module, "load_lut_plot_data", _raise)
+    monkeypatch.setattr(lut_window_module, "load_lut_inspection_data", _raise)
 
     window._load_lut(path)
 
     assert window._plot_widget.data is None
+    assert window._volume_widget.data is None
     assert window._file_label.text == str(path)
     assert window._last_info_text == ""
     assert window._status_label.text == "Failed to load LUT: bad lut"
@@ -143,4 +196,3 @@ def test_load_entrypoints_delegate_to_common_loader_path(monkeypatch) -> None:
     assert calls == [direct_path, drop_path]
     assert event.accepted is True
     assert event.ignored is False
-
