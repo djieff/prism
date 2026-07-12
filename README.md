@@ -86,6 +86,24 @@ Prism aims to make that process faster and more direct.
 
 # Install
 
+### Windows desktop build
+
+A prebuilt Windows desktop build is available from the GitHub Releases page.
+
+Download:
+
+```text
+Prism-1.2.2-windows-x64.zip
+```
+
+Extract the zip, then run:
+
+```text
+Prism\Prism.exe
+```
+
+No Python setup is required for the prebuilt Windows package.
+
 ### Install from PyPI
 
 ```powershell
@@ -101,6 +119,14 @@ python -m pip install -e .
 ---
 
 # Launch
+
+For the Windows desktop build, run:
+
+```text
+Prism\Prism.exe
+```
+
+For Python installs, run:
 
 ```powershell
 prism
@@ -291,6 +317,10 @@ Open from:
 
 * `View -> Monitoring -> Waveform Monitor`
 
+![prism_monitoring_waveform_selection.png](docs/images/readme/prism_monitoring_waveform_selection.png)
+
+![prism_waveform_default_ui.png](docs/images/readme/prism_waveform_default_ui.png)
+
 Behavior:
 
 * opens as a modeless utility window
@@ -306,6 +336,8 @@ Behavior:
   * changing mode in waveform updates main viewer mode
   * changing main viewer mode updates waveform mode
   * opening waveform initializes from current main mode
+  * this is intentional: the waveform monitor can be used as a compact control
+    surface for changing the active viewer comparison state
 * `Wipe` and `Diff` are currently unsupported in waveform mode mapping:
   * waveform shows blank graphs with an explicit unsupported-mode message
 * signal display options:
@@ -318,12 +350,17 @@ Behavior:
     * defaults to `BT.709`
     * the standard is selected explicitly and is not inferred from OCIO names
     * `Y'` is an encoded weighted signal, not scene-linear or absolute luminance
+
+![prism_waveform_monitor.png](docs/images/readme/prism_waveform_monitor.png)
+
 * applies a small SciPy Gaussian filter to rendering copies for trace
   readability; raw waveform density data remains unchanged
 * supports drag-and-drop image loading directly from waveform:
   * `Full (A)` drops load side `A`
   * `Full (B)` drops load side `B`
   * `Split` drops route by pane (`left -> A`, `right -> B`)
+  * dropped images are loaded into the main viewer, so waveform and viewer state
+    remain synchronized
 
 ---
 
