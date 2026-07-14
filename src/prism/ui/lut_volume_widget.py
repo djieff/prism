@@ -55,7 +55,7 @@ class LutVolumeWidget(QWidget):
         self.update()
 
     def set_use_output_positions(self, enabled: bool) -> None:
-        """Choose whether points are positioned by output RGB or input lattice RGB."""
+        """Choose whether points are positioned by output RGB or source RGB lattice."""
         if self._use_output_positions == enabled:
             return
         self._use_output_positions = enabled
@@ -118,7 +118,7 @@ class LutVolumeWidget(QWidget):
             self._error_text = f"Volume unavailable: {exc}"
 
     def _position_label(self) -> str:
-        return "Output cloud" if self._use_output_positions else "Input lattice"
+        return "Output cloud" if self._use_output_positions else "Source RGB lattice"
 
     def _draw_frame(self, painter: QPainter, rect: QRectF) -> None:
         painter.save()

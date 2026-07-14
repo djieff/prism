@@ -9,10 +9,13 @@ import pytest
 
 from prism.core.lut_volume_projection import (
     DEFAULT_VOLUME_SAMPLE_LIMIT,
+    VOLUME_DENSITY_SAMPLE_LIMITS,
     build_lut_volume_point_cloud,
+    build_lut_volume_render_payload,
     project_lut_volume,
     project_lut_volume_point_cloud,
     select_neutral_axis_sample_mask,
+    volume_density_sample_limit,
 )
 from prism.io.lut_loader import load_lut_volume_data
 
@@ -105,6 +108,59 @@ def test_project_lut_volume_can_project_input_lattice_positions() -> None:
 
     np.testing.assert_allclose(projection.xy[1], [1.0, 0.0])
     np.testing.assert_allclose(projection.colors_rgb[1], [0.25, 0.25, 0.25])
+
+
+def test_build_lut_volume_render_payload_uses_output_positions_by_default() -> None:
+    cube = _identity_cube(3)
+    cube[0, 0, 0] = [-1.0, 0.5, 2.0]
+
+    payload = build_lut_volume_render_payload(cube)
+
+    assert payload.density == "Medium"
+    assert payload.use_output_positions is True
+    assert payload.total_point_count == 27
+    assert payload.rendered_point_count == 27
+    assert payload.positions_rgb.shape == (27, 3)
+    assert payload.colors_rgb.shape == (27, 3)
+    assert payload.neutral_axis_mask.shape == (27,)
+    np.testing.assert_allclose(payload.positions_rgb[0], [0.0, 0.5, 1.0])
+    np.testing.assert_allclose(payload.colors_rgb[0], [0.0, 0.5, 1.0])
+    np.testing.assert_array_equal(
+        np.flatnonzero(payload.neutral_axis_mask),
+        [0, 13, 26],
+    )
+
+
+def test_build_lut_volume_render_payload_can_use_input_lattice_positions() -> None:
+    cube = _identity_cube(2)
+    cube[:] = 0.25
+
+    payload = build_lut_volume_render_payload(cube, use_output_positions=False)
+
+    assert payload.use_output_positions is False
+    np.testing.assert_allclose(payload.positions_rgb[1], [1.0, 0.0, 0.0])
+    np.testing.assert_allclose(payload.colors_rgb[1], [0.25, 0.25, 0.25])
+
+
+def test_build_lut_volume_render_payload_applies_density_presets() -> None:
+    cube = _identity_cube(65)
+
+    low = build_lut_volume_render_payload(cube, density="Low")
+    medium = build_lut_volume_render_payload(cube, density="Medium")
+    high = build_lut_volume_render_payload(cube, density="High")
+
+    assert low.rendered_point_count <= VOLUME_DENSITY_SAMPLE_LIMITS["Low"]
+    assert medium.rendered_point_count <= VOLUME_DENSITY_SAMPLE_LIMITS["Medium"]
+    assert high.rendered_point_count <= VOLUME_DENSITY_SAMPLE_LIMITS["High"]
+    assert low.rendered_point_count < medium.rendered_point_count < high.rendered_point_count
+    assert low.total_point_count == medium.total_point_count == high.total_point_count == 65**3
+
+
+def test_volume_density_sample_limit_rejects_unknown_preset() -> None:
+    assert volume_density_sample_limit("Low") == 10_000
+
+    with pytest.raises(ValueError, match="density"):
+        volume_density_sample_limit("Full")  # type: ignore[arg-type]
 
 
 def test_select_neutral_axis_sample_mask_selects_cubic_diagonal() -> None:

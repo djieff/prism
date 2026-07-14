@@ -15,13 +15,14 @@ from PySide6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QStackedWidget,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from prism.core.lut_analysis import LutAnalysisSummary, summarize_lut_samples
-from prism.core.lut_volume_projection import VolumeProjectionMode
+from prism.core.lut_volume_projection import VolumeDensityPreset, VolumeProjectionMode
 from prism.io.lut_loader import (
     LutLoadError,
     LutPlotData,
@@ -29,6 +30,7 @@ from prism.io.lut_loader import (
     load_lut_inspection_data,
 )
 from prism.ui.lut_plot_widget import LutPlotWidget
+from prism.ui.lut_volume_gl_widget import LutVolumeGlWidget
 from prism.ui.lut_volume_widget import LutVolumeWidget
 
 VOLUME_PROJECTION_MODES: tuple[VolumeProjectionMode, ...] = (
@@ -37,6 +39,7 @@ VOLUME_PROJECTION_MODES: tuple[VolumeProjectionMode, ...] = (
     "RB plane",
     "GB plane",
 )
+VOLUME_DENSITIES: tuple[VolumeDensityPreset, ...] = ("Low", "Medium", "High")
 
 
 class LutInspectionWindow(QWidget):
@@ -70,6 +73,15 @@ class LutInspectionWindow(QWidget):
         volume_layout.setSpacing(6)
 
         volume_controls = QHBoxLayout()
+        volume_controls.addWidget(QLabel("Renderer", self._volume_tab))
+        self._volume_renderer_combo = QComboBox(self._volume_tab)
+        self._volume_renderer_combo.addItem("QPainter", "qpainter")
+        self._volume_renderer_combo.addItem("OpenGL", "opengl")
+        self._volume_renderer_combo.currentIndexChanged.connect(
+            self._on_volume_renderer_changed
+        )
+        volume_controls.addWidget(self._volume_renderer_combo)
+
         volume_controls.addWidget(QLabel("Projection", self._volume_tab))
         self._volume_projection_combo = QComboBox(self._volume_tab)
         for mode in VOLUME_PROJECTION_MODES:
@@ -82,11 +94,21 @@ class LutInspectionWindow(QWidget):
         volume_controls.addWidget(QLabel("Position", self._volume_tab))
         self._volume_position_combo = QComboBox(self._volume_tab)
         self._volume_position_combo.addItem("Output cloud", True)
-        self._volume_position_combo.addItem("Input lattice", False)
+        self._volume_position_combo.addItem("Source RGB lattice", False)
         self._volume_position_combo.currentIndexChanged.connect(
             self._on_volume_position_changed
         )
         volume_controls.addWidget(self._volume_position_combo)
+
+        volume_controls.addWidget(QLabel("Density", self._volume_tab))
+        self._volume_density_combo = QComboBox(self._volume_tab)
+        for density in VOLUME_DENSITIES:
+            self._volume_density_combo.addItem(density, density)
+        self._volume_density_combo.setCurrentText("Medium")
+        self._volume_density_combo.currentIndexChanged.connect(
+            self._on_volume_density_changed
+        )
+        volume_controls.addWidget(self._volume_density_combo)
 
         self._volume_neutral_axis_checkbox = QCheckBox("Show neutral axis", self._volume_tab)
         self._volume_neutral_axis_checkbox.setChecked(True)
@@ -94,15 +116,31 @@ class LutInspectionWindow(QWidget):
             self._on_volume_neutral_axis_changed
         )
         volume_controls.addWidget(self._volume_neutral_axis_checkbox)
+        self._volume_rgb_axes_checkbox = QCheckBox("Show RGB axes", self._volume_tab)
+        self._volume_rgb_axes_checkbox.setChecked(True)
+        self._volume_rgb_axes_checkbox.stateChanged.connect(
+            self._on_volume_rgb_axes_changed
+        )
+        volume_controls.addWidget(self._volume_rgb_axes_checkbox)
+        self._volume_reset_button = QPushButton("Reset view", self._volume_tab)
+        self._volume_reset_button.clicked.connect(self._on_volume_reset_view)
+        volume_controls.addWidget(self._volume_reset_button)
         volume_controls.addStretch(1)
         volume_layout.addLayout(volume_controls)
 
-        self._volume_widget = LutVolumeWidget(self)
-        volume_layout.addWidget(self._volume_widget, 1)
+        self._volume_painter_widget = LutVolumeWidget(self)
+        self._volume_gl_widget: LutVolumeGlWidget | None = None
+        self._current_volume_data: LutVolumeData | None = None
+        self._volume_widget = self._volume_painter_widget
+        self._volume_stack = QStackedWidget(self._volume_tab)
+        self._volume_stack.addWidget(self._volume_painter_widget)
+        self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+        volume_layout.addWidget(self._volume_stack, 1)
 
         self._view_tabs.addTab(self._plot_widget, "Curves")
         self._view_tabs.addTab(self._volume_tab, "Volume")
         root.addWidget(self._view_tabs, 1)
+        self._on_volume_renderer_changed()
 
         self._info_panel = QPlainTextEdit(self)
         self._info_panel.setReadOnly(True)
@@ -154,23 +192,70 @@ class LutInspectionWindow(QWidget):
 
     def _on_volume_projection_changed(self) -> None:
         mode = cast(VolumeProjectionMode, self._volume_projection_combo.currentData())
-        self._volume_widget.set_projection_mode(mode)
+        for widget in self._volume_widgets():
+            widget.set_projection_mode(mode)
 
     def _on_volume_position_changed(self) -> None:
         use_output_positions = bool(self._volume_position_combo.currentData())
-        self._volume_widget.set_use_output_positions(use_output_positions)
+        for widget in self._volume_widgets():
+            widget.set_use_output_positions(use_output_positions)
 
     def _on_volume_neutral_axis_changed(self, _state: int | None = None) -> None:
-        self._volume_widget.set_show_neutral_axis(
-            self._volume_neutral_axis_checkbox.isChecked()
-        )
+        enabled = self._volume_neutral_axis_checkbox.isChecked()
+        for widget in self._volume_widgets():
+            widget.set_show_neutral_axis(enabled)
+
+    def _on_volume_rgb_axes_changed(self, _state: int | None = None) -> None:
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.set_show_rgb_axes(
+                self._volume_rgb_axes_checkbox.isChecked()
+            )
+
+    def _on_volume_renderer_changed(self) -> None:
+        renderer = str(self._volume_renderer_combo.currentData())
+        if renderer == "opengl":
+            gl_widget = self._ensure_volume_gl_widget()
+            self._volume_stack.setCurrentWidget(gl_widget)
+            self._volume_density_combo.setEnabled(True)
+            self._volume_reset_button.setEnabled(True)
+            self._volume_rgb_axes_checkbox.setEnabled(True)
+            self._volume_neutral_axis_checkbox.setEnabled(False)
+            gl_widget.set_volume_data(self._current_volume_data)
+            return
+        self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+        self._volume_density_combo.setEnabled(False)
+        self._volume_reset_button.setEnabled(False)
+        self._volume_rgb_axes_checkbox.setEnabled(False)
+        self._volume_neutral_axis_checkbox.setEnabled(True)
+
+    def _on_volume_density_changed(self) -> None:
+        density = cast(VolumeDensityPreset, self._volume_density_combo.currentData())
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.set_density(density)
+
+    def _on_volume_reset_view(self) -> None:
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.reset_view()
+
+    def _on_volume_gl_initialization_failed(self, message: str) -> None:
+        qpainter_index = self._volume_renderer_combo.findData("qpainter")
+        if qpainter_index >= 0:
+            self._volume_renderer_combo.setCurrentIndex(qpainter_index)
+        else:
+            self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+            self._volume_density_combo.setEnabled(False)
+            self._volume_reset_button.setEnabled(False)
+            self._volume_rgb_axes_checkbox.setEnabled(False)
+            self._volume_neutral_axis_checkbox.setEnabled(True)
+        self._status_label.setText(f"OpenGL unavailable; using QPainter renderer: {message}")
+        self._status_label.setStyleSheet("color: #ffd27f;")
 
     def _load_lut(self, path: Path) -> None:
         try:
             data = load_lut_inspection_data(path)
         except (OSError, ValueError, LutLoadError) as exc:
             self._plot_widget.set_plot_data(None)
-            self._volume_widget.set_volume_data(None)
+            self._set_volume_data(None)
             self._file_label.setText(str(path))
             self._set_info_panel_text("")
             self._status_label.setText(f"Failed to load LUT: {exc}")
@@ -178,7 +263,7 @@ class LutInspectionWindow(QWidget):
             return
 
         self._plot_widget.set_plot_data(data.plot)
-        self._volume_widget.set_volume_data(data.volume)
+        self._set_volume_data(data.volume)
         self._file_label.setText(str(path))
         self._set_info_panel_text(self._build_info_text(data.plot, data.volume))
         if data.plot.source_kind == "3d_neutral_axis":
@@ -196,6 +281,38 @@ class LutInspectionWindow(QWidget):
             f"Loaded {data.plot.format.upper()} ({source_label}), channels: {data.plot.channels}{volume_label}"
         )
         self._status_label.setStyleSheet("color: #8fdf8f;")
+
+    def _volume_widgets(self) -> tuple[LutVolumeWidget | LutVolumeGlWidget, ...]:
+        if self._volume_gl_widget is None:
+            return (self._volume_painter_widget,)
+        return (self._volume_painter_widget, self._volume_gl_widget)
+
+    def _set_volume_data(self, volume: LutVolumeData | None) -> None:
+        self._current_volume_data = volume
+        for widget in self._volume_widgets():
+            widget.set_volume_data(volume)
+
+    def _ensure_volume_gl_widget(self) -> LutVolumeGlWidget:
+        if self._volume_gl_widget is not None:
+            return self._volume_gl_widget
+        self._volume_gl_widget = LutVolumeGlWidget(self)
+        self._volume_gl_widget.initialization_failed.connect(
+            self._on_volume_gl_initialization_failed
+        )
+        self._volume_gl_widget.set_projection_mode(
+            cast(VolumeProjectionMode, self._volume_projection_combo.currentData())
+        )
+        self._volume_gl_widget.set_use_output_positions(
+            bool(self._volume_position_combo.currentData())
+        )
+        self._volume_gl_widget.set_show_rgb_axes(
+            self._volume_rgb_axes_checkbox.isChecked()
+        )
+        self._volume_gl_widget.set_density(
+            cast(VolumeDensityPreset, self._volume_density_combo.currentData())
+        )
+        self._volume_stack.insertWidget(0, self._volume_gl_widget)
+        return self._volume_gl_widget
 
     def _build_info_text(self, data: LutPlotData, volume: LutVolumeData | None = None) -> str:
         summary = summarize_lut_samples(

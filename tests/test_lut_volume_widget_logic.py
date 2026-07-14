@@ -112,7 +112,7 @@ def test_status_text_reports_empty_and_projected_states() -> None:
 
     assert (
         widget.status_text()
-        == "Volume: 2x2x2 | shown: 8/8 | projection: RGB isometric | position: Input lattice"
+        == "Volume: 2x2x2 | shown: 8/8 | projection: RGB isometric | position: Source RGB lattice"
     )
 
 

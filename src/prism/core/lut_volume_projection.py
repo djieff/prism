@@ -8,8 +8,14 @@ from typing import Literal
 import numpy as np
 
 VolumeProjectionMode = Literal["RGB isometric", "RG plane", "RB plane", "GB plane"]
+VolumeDensityPreset = Literal["Low", "Medium", "High"]
 
 DEFAULT_VOLUME_SAMPLE_LIMIT = 50_000
+VOLUME_DENSITY_SAMPLE_LIMITS: dict[VolumeDensityPreset, int] = {
+    "Low": 10_000,
+    "Medium": DEFAULT_VOLUME_SAMPLE_LIMIT,
+    "High": 100_000,
+}
 
 
 @dataclass(frozen=True)
@@ -33,6 +39,20 @@ class LutVolumeProjection:
     total_point_count: int
     projected_point_count: int
     mode: VolumeProjectionMode
+
+
+@dataclass(frozen=True)
+class LutVolumeRenderPayload:
+    """3D point payload suitable for an interactive volume renderer."""
+
+    positions_rgb: np.ndarray
+    colors_rgb: np.ndarray
+    neutral_axis_mask: np.ndarray
+    sample_indices: np.ndarray
+    total_point_count: int
+    rendered_point_count: int
+    density: VolumeDensityPreset
+    use_output_positions: bool
 
 
 def build_lut_volume_point_cloud(
@@ -110,6 +130,44 @@ def project_lut_volume(
         mode=mode,
         use_output_positions=use_output_positions,
     )
+
+
+def build_lut_volume_render_payload(
+    values: np.ndarray,
+    *,
+    density: VolumeDensityPreset = "Medium",
+    use_output_positions: bool = True,
+) -> LutVolumeRenderPayload:
+    """Return clipped 3D RGB positions/colours for an interactive volume renderer."""
+    sample_limit = volume_density_sample_limit(density)
+    point_cloud = build_lut_volume_point_cloud(values, sample_limit=sample_limit)
+    volume = _validated_volume_values(values)
+    size_z, size_y, size_x, _channels = volume.shape
+    positions = point_cloud.output_rgb if use_output_positions else point_cloud.input_rgb
+    neutral_axis_mask = select_neutral_axis_sample_mask(
+        point_cloud.sample_indices,
+        size_x=size_x,
+        size_y=size_y,
+        size_z=size_z,
+    )
+    return LutVolumeRenderPayload(
+        positions_rgb=np.asarray(np.clip(positions, 0.0, 1.0), dtype=np.float32),
+        colors_rgb=point_cloud.colors_rgb,
+        neutral_axis_mask=neutral_axis_mask,
+        sample_indices=point_cloud.sample_indices,
+        total_point_count=point_cloud.total_point_count,
+        rendered_point_count=int(point_cloud.sample_indices.shape[0]),
+        density=density,
+        use_output_positions=use_output_positions,
+    )
+
+
+def volume_density_sample_limit(density: VolumeDensityPreset) -> int:
+    """Return the deterministic sample limit for a named volume density preset."""
+    try:
+        return VOLUME_DENSITY_SAMPLE_LIMITS[density]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported LUT volume density preset: {density!r}") from exc
 
 
 def select_neutral_axis_sample_mask(

@@ -311,14 +311,13 @@ Curves tab:
   neutral-axis curve inspection, while direct lattice extraction is preserved
   for unshaped 3D LUT neutral-axis curves
 
-![LUT_inspector_curves.png](docs/images/readme/LUT_inspector_curves.png)
 
 Volume tab:
 
 * displays 3D LUTs as a square projected RGB point-cloud preview
 * Volume controls include:
   * `Projection`: `RGB isometric`, `RG plane`, `RB plane`, or `GB plane`
-  * `Position`: `Output cloud` or `Input lattice`
+  * `Position`: `Output cloud` or `Source RGB lattice`
   * `Show neutral axis`
 * plane projections use direct channel axes:
   * `RG plane`: horizontal `R`, vertical `G`
@@ -326,16 +325,13 @@ Volume tab:
   * `GB plane`: horizontal `G`, vertical `B`
 * `Output cloud` positions points by transformed LUT output RGB values, making
   LUT warping/compression visible
-* `Input lattice` keeps points on the original regular RGB cube positions while
+* `Source RGB lattice` keeps points on the original regular RGB cube positions while
   still colouring them by transformed LUT output RGB values
 * the neutral-axis overlay highlights the input grayscale diagonal (`R=G=B`)
   over the volume preview
 * large 3D LUTs are automatically decimated for preview responsiveness; the
   status text reports rendered samples versus total volume samples
 
-![LUT_inspector_volume.png](docs/images/readme/LUT_inspector_volume.png)
-
-![LUT_inspector_mix.png](docs/images/readme/LUT_inspector_mix.png)
 ---
 
 # Waveform Monitor
