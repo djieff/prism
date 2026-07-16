@@ -7,10 +7,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from prism.core.lut_volume_projection import LutVolumeProjection
-from prism.io.lut_loader import LutVolumeData
-from prism.ui import lut_volume_widget as volume_widget_module
-from prism.ui.lut_volume_widget import LutVolumeWidget
+from prism.core.lut.volume_projection import LutVolumeProjection
+from prism.io.lut.loader import LutVolumeData
+from prism.ui.lut_inspector import volume_widget as volume_widget_module
+from prism.ui.lut_inspector.volume_widget import LutVolumeWidget
 
 
 def _volume_data() -> LutVolumeData:

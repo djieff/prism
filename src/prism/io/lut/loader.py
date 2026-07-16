@@ -8,7 +8,7 @@ from typing import Callable
 
 import numpy as np
 
-from prism.core.lut_interpolation import (
+from prism.core.lut.interpolation import (
     evaluate_piecewise_linear,
     normalize_values_to_unit_from_points,
     sample_lut3d_trilinear,

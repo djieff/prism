@@ -7,7 +7,7 @@ from typing import Literal
 
 import numpy as np
 
-from prism.core.scope_waveform_science import (
+from prism.core.scopes.waveform_science import (
     DEFAULT_WAVEFORM_SIGNAL_STANDARD,
     WaveformSignalStandard,
     waveform_y_prime_coefficients,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from prism.core.lut_volume_camera import (
+from prism.core.lut.volume_camera import (
     MAX_CAMERA_DISTANCE,
     MAX_PITCH_DEGREES,
     MAX_VIEW_SCALE,

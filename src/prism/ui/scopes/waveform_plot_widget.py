@@ -9,8 +9,8 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
-from prism.core.scope_waveform import WaveformTrace
-from prism.core.scope_waveform_science import (
+from prism.core.scopes.waveform import WaveformTrace
+from prism.core.scopes.waveform_science import (
     WAVEFORM_DENSITY_FILTER_SIGMA,
     WaveformDensityChannels,
     prepare_waveform_densities_for_render,

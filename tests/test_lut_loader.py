@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from prism.io import lut_loader
-from prism.io.lut_loader import (
+from prism.io.lut import loader as lut_loader
+from prism.io.lut.loader import (
     LutLoadError,
     load_lut_inspection_data,
     load_lut_plot_data,

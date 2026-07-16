@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from PySide6.QtGui import QImage
 
-from prism.io import movie_loader
+from prism.io.media import movie_loader
 
 
 class _StubBackend:
@@ -37,7 +37,7 @@ class MovieLoaderTests(unittest.TestCase):
             movie = Path(tmp) / "clip.mov"
             movie.write_bytes(b"dummy")
             backend = _StubBackend(name="stub-ok", count_value=12)
-            with patch("prism.io.movie_loader._iter_backends", return_value=(backend,)):
+            with patch("prism.io.media.movie_loader._iter_backends", return_value=(backend,)):
                 count = movie_loader.get_movie_frame_count(movie)
             self.assertEqual(count, 12)
 
@@ -48,7 +48,7 @@ class MovieLoaderTests(unittest.TestCase):
             failing = _StubBackend(name="stub-fail", raise_on_count=True)
             success = _StubBackend(name="stub-ok", count_value=24)
             with patch(
-                "prism.io.movie_loader._iter_backends",
+                "prism.io.media.movie_loader._iter_backends",
                 return_value=(failing, success),
             ):
                 count = movie_loader.get_movie_frame_count(movie)
@@ -58,7 +58,7 @@ class MovieLoaderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             movie = Path(tmp) / "clip.mov"
             movie.write_bytes(b"dummy")
-            with patch("prism.io.movie_loader._iter_backends", return_value=()):
+            with patch("prism.io.media.movie_loader._iter_backends", return_value=()):
                 with self.assertRaises(RuntimeError) as raised:
                     movie_loader.load_movie_frame(movie, 0)
             self.assertIn("decoder backend not configured", str(raised.exception))

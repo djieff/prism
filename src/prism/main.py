@@ -53,10 +53,10 @@ def _run_frozen_smoke() -> int:
     import OpenImageIO  # noqa: F401
     import PyOpenColorIO  # noqa: F401
 
-    from prism.core.lut_interpolation import sample_lut3d_trilinear
-    from prism.core.scope_waveform_science import waveform_y_prime_coefficients
-    from prism.io.lut_loader import load_lut_plot_data
-    from prism.ui.lut_inspection_window import LutInspectionWindow
+    from prism.core.lut.interpolation import sample_lut3d_trilinear
+    from prism.core.scopes.waveform_science import waveform_y_prime_coefficients
+    from prism.io.lut.loader import load_lut_plot_data
+    from prism.ui.lut_inspector.window import LutInspectionWindow
 
     app = QApplication.instance() or QApplication([sys.argv[0], FROZEN_SMOKE_ARG])
     _configure_cross_platform_app_identity(app)

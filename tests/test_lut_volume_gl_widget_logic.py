@@ -13,10 +13,10 @@ from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QMouseEvent, QVector4D
 from PySide6.QtWidgets import QApplication
 
-from prism.core.lut_volume_camera import lut_volume_view_projection_matrix
-from prism.io.lut_loader import LutVolumeData
-from prism.ui import lut_volume_gl_widget as gl_widget_module
-from prism.ui.lut_volume_gl_widget import LutVolumeGlWidget
+from prism.core.lut.volume_camera import lut_volume_view_projection_matrix
+from prism.io.lut.loader import LutVolumeData
+from prism.ui.lut_inspector import volume_gl_widget as gl_widget_module
+from prism.ui.lut_inspector.volume_gl_widget import LutVolumeGlWidget
 
 
 @pytest.fixture(scope="module", autouse=True)

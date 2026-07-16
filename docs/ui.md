@@ -12,11 +12,11 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `view_math.py`
 - `context_variables_panel.py`
 - `context_variables_dock.py`
-- `lut_inspection_window.py`
-- `lut_plot_widget.py`
-- `lut_volume_widget.py`
-- `waveform_window.py`
-- `waveform_plot_widget.py`
+- `lut_inspector/window.py`
+- `lut_inspector/plot_widget.py`
+- `lut_inspector/volume_widget.py`
+- `scopes/waveform_window.py`
+- `scopes/waveform_plot_widget.py`
 
 ## Responsibilities
 
@@ -54,15 +54,15 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `QDockWidget` wrapper for panel integration into `View` menu.
 - Provides floating/toggleable panel behavior.
 
-### `lut_inspection_window.py`
+### `lut_inspector/window.py`
 - Modeless LUT utility window opened from `View -> LUT Inspection`.
 - Handles LUT file drag/drop and optional browse-file selection.
-- Orchestrates LUT loading via `io.lut_loader` and routes parsed data to the
+- Orchestrates LUT loading via `io.lut.loader` and routes parsed data to the
   curve and volume widgets.
 - Presents `Curves` and `Volume` tabs.
 - Hosts Volume controls for projection mode, point-position mode, and
   neutral-axis visibility.
-- Formats summary metrics produced by `core.lut_analysis`, including sample
+- Formats summary metrics produced by `core.lut.analysis`, including sample
   count, channel count, output min/max, out-of-range state, monotonicity, and
   CSP shaper state when present.
 - Reports load status/error feedback to the user.
@@ -70,14 +70,14 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Does not present Colour/Delta E metrics until the Inspector has an explicit
   colourspace/comparison assumption to show to the user.
 
-### `lut_plot_widget.py`
+### `lut_inspector/plot_widget.py`
 - Renders scalable X/Y LUT transfer curves.
 - Draws axes/grid and per-channel curve overlays (RGB when present).
 - Renders only the `LutPlotData` curves supplied by the loader; it does not own
   parsing, summary analysis, interpolation, or colour science decisions.
 - Resizes with its parent inspection window.
 
-### `lut_volume_widget.py`
+### `lut_inspector/volume_widget.py`
 - Renders projected 3D LUT volume previews as a QPainter point cloud.
 - Supports projection modes:
   - `RGB isometric`
@@ -90,10 +90,10 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Draws an optional neutral-axis overlay based on the input grayscale diagonal.
 - Keeps rendering bounded through the projection sample limit reported in the
   widget status text.
-- Consumes projected data from `core.lut_volume_projection`; it does not parse
+- Consumes projected data from `core.lut.volume_projection`; it does not parse
   LUT files or own sampling rules.
 
-### `waveform_window.py`
+### `scopes/waveform_window.py`
 - Modeless waveform utility window opened from `View -> Waveform Monitor`.
 - Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
 - Supports explicit `BT.709` and `BT.2020` standards for the encoded `Y'` trace.
@@ -105,7 +105,7 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Analysis occurs before global exposure/luminance and channel-view presentation
   controls.
 
-### `waveform_plot_widget.py`
+### `scopes/waveform_plot_widget.py`
 - Renders waveform density heatmaps for RGB channel overlays and encoded `Y'`.
 - Uses SciPy Gaussian filtering with `sigma=(0.5, 0.5)` on rendering copies.
 - Normalizes filtered R, G, B, and Y' together with one shared factor.

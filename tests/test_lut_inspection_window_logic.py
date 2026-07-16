@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
-from prism.io.lut_loader import LutInspectionData, LutLoadError, LutPlotData, LutVolumeData
-from prism.ui import lut_inspection_window as lut_window_module
-from prism.ui.lut_inspection_window import LutInspectionWindow
+from prism.io.lut.loader import LutInspectionData, LutLoadError, LutPlotData, LutVolumeData
+from prism.ui.lut_inspector import window as lut_window_module
+from prism.ui.lut_inspector.window import LutInspectionWindow
 
 
 class _LabelStub:

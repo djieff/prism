@@ -12,11 +12,11 @@
 - `frame_cache.py`
 - `frame_service.py`
 - `ocio_processor.py`
-- `lut_analysis.py`
-- `lut_interpolation.py`
-- `lut_volume_projection.py`
-- `scope_waveform.py`
-- `scope_waveform_science.py`
+- `lut/analysis.py`
+- `lut/interpolation.py`
+- `lut/volume_projection.py`
+- `scopes/waveform.py`
+- `scopes/waveform_science.py`
 
 ## Responsibilities
 
@@ -43,13 +43,13 @@
 - Builds OCIO processors from selected input/output colorspace, optional look, and context values.
 - Applies processor transforms to float RGB buffers.
 
-### `lut_analysis.py`
+### `lut/analysis.py`
 - Computes UI-agnostic LUT Inspector summary metrics from plotted sample data.
 - Reports sample count, effective channel count, per-channel output min/max,
   values outside `[0, 1]`, and per-channel monotonicity.
 - Keeps numerical summary behavior out of Qt widgets.
 
-### `lut_interpolation.py`
+### `lut/interpolation.py`
 - Provides reusable LUT interpolation helpers for inspection workflows.
 - Evaluates 1D piecewise-linear prelut mappings with explicit endpoint
   clamping.
@@ -62,7 +62,7 @@
 - Direct neutral-axis extraction remains preferred when exact lattice samples
   are available and interpolation is unnecessary.
 
-### `lut_volume_projection.py`
+### `lut/volume_projection.py`
 - Builds deterministic 3D LUT point-cloud samples from stored `(z, y, x, 3)`
   volume data.
 - Projects sampled RGB points into normalized 2D coordinates for the UI Volume
@@ -74,7 +74,7 @@
 - Selects neutral-axis samples from input lattice diagonal indices for the UI
   overlay; this keeps the reference stable even when output RGB is warped.
 
-### `scope_waveform.py`
+### `scopes/waveform.py`
 - Builds deterministic raw R, G, B, and encoded Y' density grids from float RGB
   analysis buffers.
 - Defaults to BT.709 and accepts explicit BT.2020 selection.
@@ -82,7 +82,7 @@
 - Keeps the legacy `density_luma` field name for compatibility; its documented
   meaning is encoded Y' density, not scene-linear luminance.
 
-### `scope_waveform_science.py`
+### `scopes/waveform_science.py`
 - Obtains BT.709/BT.2020 encoded-signal weights from Colour's
   `WEIGHTS_YCBCR` registry.
 - Returns defensive, read-only coefficient arrays.

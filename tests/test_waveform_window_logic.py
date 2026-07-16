@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 from PySide6.QtCore import QPointF
 
-from prism.core.scope_waveform import WaveformTrace, WaveformViewData
-from prism.core.scope_waveform_science import DEFAULT_WAVEFORM_SIGNAL_STANDARD
-from prism.ui import waveform_window as waveform_window_module
-from prism.ui.waveform_window import WaveformWindow
+from prism.core.scopes.waveform import WaveformTrace, WaveformViewData
+from prism.core.scopes.waveform_science import DEFAULT_WAVEFORM_SIGNAL_STANDARD
+from prism.ui.scopes import waveform_window as waveform_window_module
+from prism.ui.scopes.waveform_window import WaveformWindow
 
 
 class _PlotStub:

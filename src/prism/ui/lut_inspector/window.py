@@ -21,17 +21,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from prism.core.lut_analysis import LutAnalysisSummary, summarize_lut_samples
-from prism.core.lut_volume_projection import VolumeDensityPreset, VolumeProjectionMode
-from prism.io.lut_loader import (
+from prism.core.lut.analysis import LutAnalysisSummary, summarize_lut_samples
+from prism.core.lut.volume_projection import VolumeDensityPreset, VolumeProjectionMode
+from prism.io.lut.loader import (
     LutLoadError,
     LutPlotData,
     LutVolumeData,
     load_lut_inspection_data,
 )
-from prism.ui.lut_plot_widget import LutPlotWidget
-from prism.ui.lut_volume_gl_widget import LutVolumeGlWidget
-from prism.ui.lut_volume_widget import LutVolumeWidget
+from prism.ui.lut_inspector.plot_widget import LutPlotWidget
+from prism.ui.lut_inspector.volume_gl_widget import LutVolumeGlWidget
+from prism.ui.lut_inspector.volume_widget import LutVolumeWidget
 
 VOLUME_PROJECTION_MODES: tuple[VolumeProjectionMode, ...] = (
     "RGB isometric",

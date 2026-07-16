@@ -16,7 +16,7 @@ from PySide6.QtOpenGL import (
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from PySide6.QtWidgets import QWidget
 
-from prism.core.lut_volume_camera import (
+from prism.core.lut.volume_camera import (
     DEFAULT_VIEW_SCALE,
     MAX_VIEW_SCALE,
     MIN_VIEW_SCALE,
@@ -28,13 +28,13 @@ from prism.core.lut_volume_camera import (
     reset_lut_volume_camera,
     zoom_lut_volume_camera,
 )
-from prism.core.lut_volume_projection import (
+from prism.core.lut.volume_projection import (
     LutVolumeRenderPayload,
     VolumeDensityPreset,
     VolumeProjectionMode,
     build_lut_volume_render_payload,
 )
-from prism.io.lut_loader import LutVolumeData
+from prism.io.lut.loader import LutVolumeData
 
 GL_POINTS = 0x0000
 GL_LINES = 0x0001

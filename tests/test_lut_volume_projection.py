@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from prism.core.lut_volume_projection import (
+from prism.core.lut.volume_projection import (
     DEFAULT_VOLUME_SAMPLE_LIMIT,
     VOLUME_DENSITY_SAMPLE_LIMITS,
     build_lut_volume_point_cloud,
@@ -17,7 +17,7 @@ from prism.core.lut_volume_projection import (
     select_neutral_axis_sample_mask,
     volume_density_sample_limit,
 )
-from prism.io.lut_loader import load_lut_volume_data
+from prism.io.lut.loader import load_lut_volume_data
 
 
 def _identity_cube(size: int) -> np.ndarray:

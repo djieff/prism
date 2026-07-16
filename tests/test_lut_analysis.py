@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from prism.core.lut_analysis import summarize_lut_samples
+from prism.core.lut.analysis import summarize_lut_samples
 
 
 def test_summarize_lut_samples_reports_min_max_range_and_monotonicity() -> None:

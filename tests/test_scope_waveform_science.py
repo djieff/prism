@@ -7,7 +7,7 @@ from typing import cast
 import numpy as np
 import pytest
 
-from prism.core.scope_waveform_science import (
+from prism.core.scopes.waveform_science import (
     WAVEFORM_DENSITY_FILTER_SIGMA,
     WaveformSignalStandard,
     filter_waveform_density,

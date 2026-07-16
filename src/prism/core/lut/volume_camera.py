@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 from numpy.typing import NDArray
 
-from prism.core.lut_volume_projection import VolumeProjectionMode
+from prism.core.lut.volume_projection import VolumeProjectionMode
 
 FloatArray = NDArray[np.float32]
 

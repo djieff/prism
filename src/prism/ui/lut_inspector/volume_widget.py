@@ -6,14 +6,14 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
-from prism.core.lut_volume_projection import (
+from prism.core.lut.volume_projection import (
     DEFAULT_VOLUME_SAMPLE_LIMIT,
     LutVolumeProjection,
     VolumeProjectionMode,
     project_lut_volume,
     select_neutral_axis_sample_mask,
 )
-from prism.io.lut_loader import LutVolumeData
+from prism.io.lut.loader import LutVolumeData
 
 
 class LutVolumeWidget(QWidget):

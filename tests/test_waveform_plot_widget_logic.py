@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from prism.core.scope_waveform import WaveformTrace
-from prism.core.scope_waveform_science import WAVEFORM_DENSITY_FILTER_SIGMA
-from prism.ui import waveform_plot_widget as plot_widget_module
-from prism.ui.waveform_plot_widget import WaveformPlotWidget
+from prism.core.scopes.waveform import WaveformTrace
+from prism.core.scopes.waveform_science import WAVEFORM_DENSITY_FILTER_SIGMA
+from prism.ui.scopes import waveform_plot_widget as plot_widget_module
+from prism.ui.scopes.waveform_plot_widget import WaveformPlotWidget
 
 
 def _trace() -> WaveformTrace:
