@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from prism.io.source_detect import detect_source_input
+from prism.io.media.source_detect import detect_source_input
 
 
 class SourceDetectTests(unittest.TestCase):

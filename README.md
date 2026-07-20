@@ -288,27 +288,73 @@ Open from:
 
 ![LUT_inspector_default.png](docs/images/readme/LUT_inspector_default.png)
 
-Behavior:
+General behavior:
 
 * opens as a modeless utility window
 * accepts drag-and-drop LUT files
 * supports `.cube`, `.spi1d`, `.csp`, `.spi3d`, `.lut`, and `.3dl` formats
-* plots LUT curves on an X/Y diagram that scales with window size
-* for 3D LUTs, displays a neutral-axis projection (`R=G=B` samples)
 * for `.cube`, `DOMAIN_MIN` and `DOMAIN_MAX` must use matching RGB components (mixed per-channel domain values are treated as unsupported)
 * reports summary metrics including sample count, channel count, output
   min/max, out-of-range status, monotonicity, and CSP shaper status when
   available
 * keeps summary analysis in core helpers and rendering in the UI layer
-* uses SciPy-backed trilinear sampling for shaped CSP-style 3D LUT
-  neutral-axis inspection, while direct lattice extraction is preserved for
-  unshaped 3D LUT neutral axes
 * does not currently display Colour/Delta E metrics; arbitrary LUT files do
   not provide a reliable source/target colourspace contract, so perceptual
   metrics are deferred until a dedicated colour-metrics workflow can state its
   assumptions explicitly
 
-![LUT_inspector_mix.png](docs/images/readme/LUT_inspector_mix.png)
+Curves tab:
+
+* displays LUT transfer curves on an X/Y diagram that scales with window size
+* for 3D LUTs, uses a neutral-axis curve projection (`R=G=B` samples)
+* uses SciPy-backed trilinear sampling for shaped CSP-style 3D LUT
+  neutral-axis curve inspection, while direct lattice extraction is preserved
+  for unshaped 3D LUT neutral-axis curves
+
+![LUT_inspector_curves_mix.png](docs/images/readme/LUT_inspector_curves_mix.png)
+
+Volume tab:
+
+* displays 3D LUTs as RGB point-cloud previews
+* `Renderer` switches between the default `QPainter` preview and the
+  interactive `OpenGL` preview
+* shared Volume controls include:
+  * `Projection`: `RGB isometric`, `RG plane`, `RB plane`, or `GB plane`
+  * `Position`: `Output cloud` or `Source RGB lattice`
+* plane projections use direct channel axes:
+  * `RG plane`: horizontal `R`, vertical `G`
+  * `RB plane`: horizontal `R`, vertical `B`
+  * `GB plane`: horizontal `G`, vertical `B`
+* `Output cloud` positions points by transformed LUT output RGB values, making
+  LUT warping/compression visible
+* `Source RGB lattice` keeps points on the original regular RGB cube positions while
+  still colouring them by transformed LUT output RGB values
+
+QPainter volume preview:
+
+* renders a square projected point-cloud preview without requiring an OpenGL context
+* supports the shared projection and position controls
+* supports `Show neutral axis`, which highlights the input grayscale diagonal
+  (`R=G=B`) over the volume preview
+* large 3D LUTs are automatically decimated for preview responsiveness; the
+  status text reports rendered samples versus total volume samples
+
+![LUT_inspector_volumes_qpainter_mix.png](docs/images/readme/LUT_inspector_volumes_qpainter_mix.png)
+
+
+OpenGL volume preview:
+
+* renders an interactive 3D point cloud for supported systems with an available
+  OpenGL context
+* supports the shared projection and position controls
+* supports `Density`: `Low`, `Medium`, or `High`
+* supports `Show RGB axes` for orientation in RGB space
+* supports mouse orbit in `RGB isometric`, pan in plane projections, wheel zoom,
+  double-click reset, and the `Reset view` button
+* falls back to the QPainter renderer if OpenGL initialization is unavailable
+
+![LUT_inspector_volumes_opengl_mix.png](docs/images/readme/LUT_inspector_volumes_opengl_mix.png)
+
 ---
 
 # Waveform Monitor
@@ -372,12 +418,18 @@ Includes:
 
 * Prism version
 * Python version
+* Python executable
+* Frozen/build mode
+* Platform and Qt platform plugin
 * Qt / PySide version
 * NumPy version
+* SciPy version
+* colour-science version
 * OpenImageIO version
 * OpenColorIO version
+* OpenCV version
 * Active OCIO config
-* Platform information
+* Working directory
 
 Useful for:
 

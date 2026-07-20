@@ -8,7 +8,7 @@ from typing import Callable
 
 import numpy as np
 
-from prism.core.lut_interpolation import (
+from prism.core.lut.interpolation import (
     evaluate_piecewise_linear,
     normalize_values_to_unit_from_points,
     sample_lut3d_trilinear,
@@ -34,6 +34,29 @@ class LutPlotData:
     csp_has_shaper: bool | None = None
 
 
+@dataclass(frozen=True)
+class LutVolumeData:
+    """Structured full-volume 3D LUT data for volumetric inspection."""
+
+    path: Path
+    format: str
+    size_x: int
+    size_y: int
+    size_z: int
+    values: np.ndarray
+    domain_min: tuple[float, float, float]
+    domain_max: tuple[float, float, float]
+    has_shaper: bool | None = None
+
+
+@dataclass(frozen=True)
+class LutInspectionData:
+    """Combined LUT data for curve and optional volume inspection views."""
+
+    plot: LutPlotData
+    volume: LutVolumeData | None
+
+
 def load_lut_plot_data(path: Path) -> LutPlotData:
     """Load LUT file and return structured curve data for plotting."""
     suffix = path.suffix.lower()
@@ -41,6 +64,23 @@ def load_lut_plot_data(path: Path) -> LutPlotData:
     if loader is not None:
         return loader(path)
     raise LutLoadError(f"Unsupported LUT format: {path.suffix or '<none>'}")
+
+
+def load_lut_volume_data(path: Path) -> LutVolumeData | None:
+    """Load LUT file and return full 3D volume data when available."""
+    suffix = path.suffix.lower()
+    loader = _LUT_VOLUME_LOADERS.get(suffix)
+    if loader is not None:
+        return loader(path)
+    raise LutLoadError(f"Unsupported LUT format: {path.suffix or '<none>'}")
+
+
+def load_lut_inspection_data(path: Path) -> LutInspectionData:
+    """Load LUT file and return curve data plus optional 3D volume data."""
+    return LutInspectionData(
+        plot=load_lut_plot_data(path),
+        volume=load_lut_volume_data(path),
+    )
 
 
 def _load_spi1d(path: Path) -> LutPlotData:
@@ -309,6 +349,281 @@ def _load_3dl(path: Path) -> LutPlotData:
     )
 
 
+def _load_cube_volume(path: Path) -> LutVolumeData | None:
+    """Parse a `.cube` LUT and return full 3D volume data when present."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    non_empty = [line.strip() for line in lines if line.strip()]
+    if non_empty and non_empty[0] == "CSPLUTV100":
+        return _load_csp_style_3d_volume(path, non_empty, source_format="cube")
+
+    domain_min = (0.0, 0.0, 0.0)
+    domain_max = (1.0, 1.0, 1.0)
+    lut_1d_size: int | None = None
+    lut_3d_size: int | None = None
+    values: list[tuple[float, float, float]] = []
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        tokens = line.split()
+        key = tokens[0]
+        if key == "TITLE":
+            continue
+        if key == "DOMAIN_MIN":
+            if len(tokens) != 4:
+                raise LutLoadError(f"Invalid .cube DOMAIN_MIN row: {path}")
+            domain_min = (float(tokens[1]), float(tokens[2]), float(tokens[3]))
+            if not _components_are_equal(domain_min):
+                raise LutLoadError(f"Unsupported .cube DOMAIN_MIN components: {path}")
+            continue
+        if key == "DOMAIN_MAX":
+            if len(tokens) != 4:
+                raise LutLoadError(f"Invalid .cube DOMAIN_MAX row: {path}")
+            domain_max = (float(tokens[1]), float(tokens[2]), float(tokens[3]))
+            if not _components_are_equal(domain_max):
+                raise LutLoadError(f"Unsupported .cube DOMAIN_MAX components: {path}")
+            continue
+        if key == "LUT_1D_SIZE" and len(tokens) >= 2:
+            lut_1d_size = int(tokens[1])
+            continue
+        if key == "LUT_3D_SIZE" and len(tokens) >= 2:
+            lut_3d_size = int(tokens[1])
+            continue
+        if len(tokens) >= 3:
+            values.append((float(tokens[0]), float(tokens[1]), float(tokens[2])))
+
+    if lut_1d_size is not None:
+        return None
+    if lut_3d_size is None:
+        raise LutLoadError(f"Invalid .cube (missing LUT_1D_SIZE/LUT_3D_SIZE): {path}")
+    if lut_3d_size <= 1:
+        raise LutLoadError(f"Invalid 3D .cube size: {lut_3d_size}")
+
+    expected_rows = lut_3d_size * lut_3d_size * lut_3d_size
+    if len(values) != expected_rows:
+        raise LutLoadError(
+            f"Invalid 3D .cube row count ({len(values)} != {expected_rows}): {path}"
+        )
+
+    value_array = np.asarray(values, dtype=np.float32).reshape(
+        (lut_3d_size, lut_3d_size, lut_3d_size, 3)
+    )
+    return LutVolumeData(
+        path=path,
+        format="cube",
+        size_x=lut_3d_size,
+        size_y=lut_3d_size,
+        size_z=lut_3d_size,
+        values=value_array,
+        domain_min=domain_min,
+        domain_max=domain_max,
+    )
+
+
+def _load_csp_volume(path: Path) -> LutVolumeData:
+    """Parse a `.csp` LUT into full 3D volume data."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    non_empty = [line.strip() for line in lines if line.strip()]
+    if not non_empty or non_empty[0] != "CSPLUTV100":
+        raise LutLoadError(f"Invalid .csp header: {path}")
+    return _load_csp_style_3d_volume(path, non_empty, source_format="csp")
+
+
+def _load_spi3d_volume(path: Path) -> LutVolumeData:
+    """Parse a `.spi3d` LUT into full 3D volume data."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    non_empty = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    if len(non_empty) < 3 or not non_empty[0].startswith("SPILUT"):
+        raise LutLoadError(f"Invalid .spi3d header: {path}")
+
+    size_tokens = non_empty[2].split()
+    if len(size_tokens) < 3:
+        raise LutLoadError(f"Invalid .spi3d size row: {path}")
+    size_x = int(size_tokens[0])
+    size_y = int(size_tokens[1])
+    size_z = int(size_tokens[2])
+    if size_x <= 1 or size_y <= 1 or size_z <= 1:
+        raise LutLoadError(f"Invalid .spi3d dimensions: {path}")
+
+    value_array = np.zeros((size_z, size_y, size_x, 3), dtype=np.float32)
+    row_count = 0
+    for row in non_empty[3:]:
+        tokens = row.split()
+        if len(tokens) < 6:
+            continue
+        x = int(tokens[0])
+        y = int(tokens[1])
+        z = int(tokens[2])
+        if not (0 <= x < size_x and 0 <= y < size_y and 0 <= z < size_z):
+            raise LutLoadError(f"Invalid .spi3d sample index in: {path}")
+        value_array[z, y, x] = (
+            float(tokens[3]),
+            float(tokens[4]),
+            float(tokens[5]),
+        )
+        row_count += 1
+
+    expected_rows = size_x * size_y * size_z
+    if row_count != expected_rows:
+        raise LutLoadError(f"Invalid .spi3d row count ({row_count} != {expected_rows}): {path}")
+
+    return LutVolumeData(
+        path=path,
+        format="spi3d",
+        size_x=size_x,
+        size_y=size_y,
+        size_z=size_z,
+        values=value_array,
+        domain_min=(0.0, 0.0, 0.0),
+        domain_max=(1.0, 1.0, 1.0),
+    )
+
+
+def _load_3dl_volume(path: Path) -> LutVolumeData:
+    """Parse a `.3dl` LUT into normalized full 3D volume data."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    non_empty = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
+    if len(non_empty) < 2:
+        raise LutLoadError(f"Invalid .3dl (too short): {path}")
+
+    index_values = [int(token) for token in non_empty[0].split()]
+    size = len(index_values)
+    if size <= 1:
+        raise LutLoadError(f"Invalid .3dl index row: {path}")
+
+    values: list[tuple[float, float, float]] = []
+    for row in non_empty[1:]:
+        tokens = row.split()
+        if len(tokens) < 3:
+            continue
+        values.append((float(tokens[0]), float(tokens[1]), float(tokens[2])))
+
+    expected_rows = size * size * size
+    if len(values) != expected_rows:
+        raise LutLoadError(f"Invalid .3dl row count ({len(values)} != {expected_rows}): {path}")
+
+    value_array = np.asarray(values, dtype=np.float32).reshape((size, size, size, 3))
+    max_output = float(np.max(value_array))
+    if max_output <= 0.0:
+        raise LutLoadError(f"Invalid .3dl output scale in: {path}")
+    value_array = np.asarray(value_array / max_output, dtype=np.float32)
+
+    return LutVolumeData(
+        path=path,
+        format="3dl",
+        size_x=size,
+        size_y=size,
+        size_z=size,
+        values=value_array,
+        domain_min=(0.0, 0.0, 0.0),
+        domain_max=(1.0, 1.0, 1.0),
+    )
+
+
+def _load_csp_style_3d_volume(
+    path: Path,
+    lines: list[str],
+    source_format: str,
+) -> LutVolumeData:
+    """Parse CSPLUTV100 full 3D volume data."""
+    if len(lines) < 3 or lines[1] != "3D":
+        raise LutLoadError(f"Unsupported CSPLUT structure in: {path}")
+
+    index = 2
+    if index < len(lines) and lines[index] == "BEGIN METADATA":
+        while index < len(lines) and lines[index] != "END METADATA":
+            index += 1
+        if index >= len(lines):
+            raise LutLoadError(f"Invalid CSPLUT metadata block in: {path}")
+        index += 1
+
+    channel_domains: list[tuple[float, float]] = []
+    has_shaper = False
+    for _ in range(3):
+        if index >= len(lines):
+            raise LutLoadError(f"Incomplete CSPLUT domain block in: {path}")
+        entries = int(lines[index])
+        index += 1
+        if entries < 2:
+            raise LutLoadError(f"Invalid CSPLUT domain entry count ({entries}) in: {path}")
+        points: list[tuple[float, float]] = []
+        for _entry in range(entries):
+            if index >= len(lines):
+                raise LutLoadError(f"Incomplete CSPLUT domain values in: {path}")
+            tokens = lines[index].split()
+            index += 1
+            if len(tokens) < 2:
+                raise LutLoadError(f"Invalid CSPLUT domain row in: {path}")
+            points.append((float(tokens[0]), float(tokens[1])))
+
+        if entries == 2:
+            in_min, in_max = points[0]
+            out_min, out_max = points[1]
+            if not (
+                abs(in_min - 0.0) < 1e-9
+                and abs(in_max - 1.0) < 1e-9
+                and abs(out_min - 0.0) < 1e-9
+                and abs(out_max - 1.0) < 1e-9
+            ):
+                has_shaper = True
+            channel_domains.append((in_min, in_max))
+            continue
+
+        has_shaper = True
+        channel_domains.append((points[0][0], points[-1][0]))
+
+    if index >= len(lines):
+        raise LutLoadError(f"Missing CSPLUT cube size line in: {path}")
+    dims_tokens = lines[index].split()
+    index += 1
+    if len(dims_tokens) < 3:
+        raise LutLoadError(f"Invalid CSPLUT cube size row in: {path}")
+    size_x = int(dims_tokens[0])
+    size_y = int(dims_tokens[1])
+    size_z = int(dims_tokens[2])
+    if size_x <= 1 or size_y <= 1 or size_z <= 1:
+        raise LutLoadError(f"Invalid CSPLUT cube size ({size_x} {size_y} {size_z}) in: {path}")
+
+    values: list[tuple[float, float, float]] = []
+    for row in lines[index:]:
+        if row.startswith("#"):
+            continue
+        tokens = row.split()
+        if len(tokens) < 3:
+            continue
+        values.append((float(tokens[0]), float(tokens[1]), float(tokens[2])))
+
+    expected_rows = size_x * size_y * size_z
+    if len(values) != expected_rows:
+        raise LutLoadError(
+            f"Invalid CSPLUT row count ({len(values)} != {expected_rows}): {path}"
+        )
+
+    volume_domain_min = (
+        float(channel_domains[0][0]),
+        float(channel_domains[1][0]),
+        float(channel_domains[2][0]),
+    )
+    volume_domain_max = (
+        float(channel_domains[0][1]),
+        float(channel_domains[1][1]),
+        float(channel_domains[2][1]),
+    )
+
+    return LutVolumeData(
+        path=path,
+        format=source_format,
+        size_x=size_x,
+        size_y=size_y,
+        size_z=size_z,
+        values=np.asarray(values, dtype=np.float32).reshape((size_z, size_y, size_x, 3)),
+        domain_min=volume_domain_min,
+        domain_max=volume_domain_max,
+        has_shaper=has_shaper,
+    )
+
+
 def _load_csp_style_3d_cube(
     path: Path,
     lines: list[str],
@@ -519,4 +834,13 @@ _LUT_PLOT_LOADERS: dict[str, Callable[[Path], LutPlotData]] = {
     ".spi3d": _load_spi3d,
     ".lut": _load_houdini_lut,
     ".3dl": _load_3dl,
+}
+
+_LUT_VOLUME_LOADERS: dict[str, Callable[[Path], LutVolumeData | None]] = {
+    ".spi1d": lambda _path: None,
+    ".cube": _load_cube_volume,
+    ".csp": _load_csp_volume,
+    ".spi3d": _load_spi3d_volume,
+    ".lut": lambda _path: None,
+    ".3dl": _load_3dl_volume,
 }

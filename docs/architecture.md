@@ -31,11 +31,13 @@ Primary runtime flow:
 5. Processed display buffers are pushed to compare/split views.
 6. UI hover/navigation reads display buffers for HUD and interaction feedback.
 7. An open waveform window reads the per-side float analysis buffers, builds
-   raw density data in `core.scope_waveform`, and prepares filtered rendering
-   copies through `core.scope_waveform_science`.
-8. An open LUT Inspector loads LUT files through `io.lut_loader`, summarizes
-   plot data through `core.lut_analysis`, uses `core.lut_interpolation` for
-   shaped 3D sampling where needed, and renders curves in UI widgets.
+   raw density data in `core.scopes.waveform`, and prepares filtered rendering
+   copies through `core.scopes.waveform_science`.
+8. An open LUT Inspector loads LUT files through `io.lut.loader`, summarizes
+   plot data through `core.lut.analysis`, uses `core.lut.interpolation` for
+   shaped 3D neutral-axis sampling where needed, projects 3D LUT volume data
+   through `core.lut.volume_projection`, and renders curves/volume previews in
+   UI widgets.
 
 Waveform boundary notes:
 - the analysis buffer is post-OCIO only when a transform is active;
@@ -45,11 +47,13 @@ Waveform boundary notes:
 - OCIO names are not used to infer a Colour signal standard.
 
 LUT Inspector boundary notes:
-- file parsing and format validation stay in `io.lut_loader`;
+- file parsing and format validation stay in `io.lut.loader`;
 - numerical summary and interpolation helpers stay in `core`;
-- curve rendering and status text stay in `ui`;
-- 3D LUT display is currently a neutral-axis projection, not a volumetric
-  preview;
+- volume projection helpers stay in `core`;
+- curve rendering, volume rendering, controls, and status text stay in `ui`;
+- the `Curves` tab uses neutral-axis curve data for 3D LUTs;
+- the `Volume` tab presents a projected 3D LUT point-cloud preview with
+  projection, point-position, and neutral-axis visibility controls;
 - Colour/Delta E LUT metrics are deferred until a dedicated workflow can state
   source/target colourspace and comparison assumptions explicitly.
 

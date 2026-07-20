@@ -10,9 +10,9 @@ from uuid import uuid4
 from PySide6.QtGui import QImage
 
 from prism.core.frame_source import FrameInfo, SourceKind
-from prism.io.image_loader import load_image
-from prism.io.movie_loader import get_movie_frame_count, load_movie_frame
-from prism.io.source_detect import detect_source_input
+from prism.io.image.loader import load_image
+from prism.io.media.movie_loader import get_movie_frame_count, load_movie_frame
+from prism.io.media.source_detect import detect_source_input
 
 _SEQUENCE_FRAME_PATTERN = re.compile(r"^.+\.(?P<digits>\d+)\.[^.]+$")
 

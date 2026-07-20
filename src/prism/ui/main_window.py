@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import platform
+import sys
 from importlib import resources
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import numpy as np
@@ -50,7 +52,7 @@ from PySide6.QtWidgets import (
 from prism import __version__ as prism_version
 from prism.core.frame_service import FrameService
 from prism.core.ocio_processor import apply_ocio_transform, build_ocio_processor
-from prism.core.scope_waveform import WaveformMode
+from prism.core.scopes.waveform import WaveformMode
 from prism.core.source_models import create_source_from_path
 from prism.core.ui_tokens import (
     COMPARE_MODES_REQUIRING_BOTH_IMAGES,
@@ -66,7 +68,7 @@ from prism.core.viewer_state import (
     PanelState,
     ViewerSide,
 )
-from prism.io.image_loader import float_rgb_to_qimage, qimage_to_float_rgb
+from prism.io.image.loader import float_rgb_to_qimage, qimage_to_float_rgb
 from prism.io.ocio_config import (
     list_colorspaces,
     list_context_variables,
@@ -75,9 +77,9 @@ from prism.io.ocio_config import (
 )
 from prism.ui.compare_view import CompareView
 from prism.ui.context_variables_dock import ContextVariablesDock
-from prism.ui.lut_inspection_window import LutInspectionWindow
+from prism.ui.lut_inspector.window import LutInspectionWindow
+from prism.ui.scopes.waveform_window import WaveformWindow
 from prism.ui.status_formatters import panel_frame_suffix, persistent_status_message, side_label
-from prism.ui.waveform_window import WaveformWindow
 
 # Layout constants (maintainability-focused; no behavior changes).
 ZERO_MARGINS = (0, 0, 0, 0)
@@ -1449,7 +1451,7 @@ class MainWindow(QMainWindow):
         return [
             ("Application", "Prism Viewer"),
             ("Version", prism_version),
-            ("Purpose", "OCIO still-image viewer for A/B comparison"),
+            ("Purpose", "OCIO image inspection and color pipeline validation"),
             ("License", "MIT"),
         ]
 
@@ -1457,13 +1459,20 @@ class MainWindow(QMainWindow):
         return [
             ("Prism Version", prism_version),
             ("Python", platform.python_version()),
+            ("Python Executable", sys.executable),
+            ("Frozen Build", "Yes" if getattr(sys, "frozen", False) else "No"),
+            ("Platform", platform.platform()),
             ("PySide6", pyside_version),
             ("Qt", qVersion()),
+            ("Qt Platform", QApplication.platformName()),
             ("NumPy", np.__version__),
+            ("SciPy", self._scipy_version()),
+            ("colour-science", self._package_version("colour-science")),
             ("OpenImageIO", self._open_image_io_version()),
             ("OpenColorIO", self._open_color_io_version()),
+            ("OpenCV", self._open_cv_version()),
             ("OCIO Config", self._active_ocio_config_label()),
-            ("Platform", platform.platform()),
+            ("Working Directory", str(Path.cwd())),
         ]
 
     def _diagnostics_text(self) -> str:
@@ -1476,6 +1485,21 @@ class MainWindow(QMainWindow):
         if not self._loaded_ocio_config_path:
             return "None loaded"
         return self._loaded_ocio_config_path
+
+    def _package_version(self, package_name: str) -> str:
+        try:
+            return version(package_name)
+        except PackageNotFoundError:
+            return "Unavailable"
+        except Exception:
+            return "Unknown"
+
+    def _scipy_version(self) -> str:
+        try:
+            import scipy
+        except Exception:
+            return "Unavailable"
+        return str(getattr(scipy, "__version__", "Unknown"))
 
     def _open_color_io_version(self) -> str:
         try:
@@ -1505,6 +1529,13 @@ class MainWindow(QMainWindow):
         except Exception:
             return "Unknown"
         return str(version) if version else "Unknown"
+
+    def _open_cv_version(self) -> str:
+        try:
+            import cv2
+        except Exception:
+            return "Unavailable"
+        return str(getattr(cv2, "__version__", "Unknown"))
 
     def _load_dropped_image(self, image_path: str, requested_side: ViewerSide | None) -> None:
         side = self._resolve_drop_target_side(requested_side)

@@ -48,15 +48,14 @@ def _run_frozen_smoke() -> int:
     """Run non-interactive checks for frozen desktop bundles."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-    import colour  # noqa: F401
     import numpy as np
     import OpenImageIO  # noqa: F401
     import PyOpenColorIO  # noqa: F401
 
-    from prism.core.lut_interpolation import sample_lut3d_trilinear
-    from prism.core.scope_waveform_science import waveform_y_prime_coefficients
-    from prism.io.lut_loader import load_lut_plot_data
-    from prism.ui.lut_inspection_window import LutInspectionWindow
+    from prism.core.lut.interpolation import sample_lut3d_trilinear
+    from prism.core.scopes.waveform_science import waveform_y_prime_coefficients
+    from prism.io.lut.loader import load_lut_plot_data
+    from prism.ui.lut_inspector.window import LutInspectionWindow
 
     app = QApplication.instance() or QApplication([sys.argv[0], FROZEN_SMOKE_ARG])
     _configure_cross_platform_app_identity(app)
@@ -89,7 +88,7 @@ def _run_frozen_smoke() -> int:
 
     coeffs = waveform_y_prime_coefficients("ITU-R BT.709")
     if coeffs.shape != (3,):
-        raise RuntimeError("Colour waveform coefficient smoke check failed")
+        raise RuntimeError("Waveform coefficient smoke check failed")
 
     cube = np.zeros((2, 2, 2, 3), dtype=np.float32)
     cube[1, 1, 1] = 1.0

@@ -1,0 +1,383 @@
+"""Modeless LUT inspection window."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import cast
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QPlainTextEdit,
+    QPushButton,
+    QStackedWidget,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+from prism.core.lut.analysis import LutAnalysisSummary, summarize_lut_samples
+from prism.core.lut.volume_projection import VolumeDensityPreset, VolumeProjectionMode
+from prism.io.lut.loader import (
+    LutLoadError,
+    LutPlotData,
+    LutVolumeData,
+    load_lut_inspection_data,
+)
+from prism.ui.lut_inspector.plot_widget import LutPlotWidget
+from prism.ui.lut_inspector.volume_gl_widget import LutVolumeGlWidget
+from prism.ui.lut_inspector.volume_widget import LutVolumeWidget
+
+VOLUME_PROJECTION_MODES: tuple[VolumeProjectionMode, ...] = (
+    "RGB isometric",
+    "RG plane",
+    "RB plane",
+    "GB plane",
+)
+VOLUME_DENSITIES: tuple[VolumeDensityPreset, ...] = ("Low", "Medium", "High")
+
+
+class LutInspectionWindow(QWidget):
+    """Modeless window that loads and plots LUT transfer curves."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent, Qt.WindowType.Window)
+        self.setWindowTitle("LUT Inspection")
+        self.resize(760, 760)
+        self.setAcceptDrops(True)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(8)
+
+        header = QHBoxLayout()
+        self._browse_button = QPushButton("Open LUT...", self)
+        self._browse_button.clicked.connect(self._browse_lut_file)
+        header.addWidget(self._browse_button)
+
+        self._file_label = QLabel("No LUT loaded", self)
+        self._file_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        header.addWidget(self._file_label, 1)
+        root.addLayout(header)
+
+        self._view_tabs = QTabWidget(self)
+        self._plot_widget = LutPlotWidget(self)
+        self._volume_tab = QWidget(self)
+        volume_layout = QVBoxLayout(self._volume_tab)
+        volume_layout.setContentsMargins(0, 0, 0, 0)
+        volume_layout.setSpacing(6)
+
+        volume_controls = QHBoxLayout()
+        volume_controls.addWidget(QLabel("Renderer", self._volume_tab))
+        self._volume_renderer_combo = QComboBox(self._volume_tab)
+        self._volume_renderer_combo.addItem("QPainter", "qpainter")
+        self._volume_renderer_combo.addItem("OpenGL", "opengl")
+        self._volume_renderer_combo.currentIndexChanged.connect(
+            self._on_volume_renderer_changed
+        )
+        volume_controls.addWidget(self._volume_renderer_combo)
+
+        volume_controls.addWidget(QLabel("Projection", self._volume_tab))
+        self._volume_projection_combo = QComboBox(self._volume_tab)
+        for mode in VOLUME_PROJECTION_MODES:
+            self._volume_projection_combo.addItem(mode, mode)
+        self._volume_projection_combo.currentIndexChanged.connect(
+            self._on_volume_projection_changed
+        )
+        volume_controls.addWidget(self._volume_projection_combo)
+
+        volume_controls.addWidget(QLabel("Position", self._volume_tab))
+        self._volume_position_combo = QComboBox(self._volume_tab)
+        self._volume_position_combo.addItem("Output cloud", True)
+        self._volume_position_combo.addItem("Source RGB lattice", False)
+        self._volume_position_combo.currentIndexChanged.connect(
+            self._on_volume_position_changed
+        )
+        volume_controls.addWidget(self._volume_position_combo)
+
+        volume_controls.addWidget(QLabel("Density", self._volume_tab))
+        self._volume_density_combo = QComboBox(self._volume_tab)
+        for density in VOLUME_DENSITIES:
+            self._volume_density_combo.addItem(density, density)
+        self._volume_density_combo.setCurrentText("Medium")
+        self._volume_density_combo.currentIndexChanged.connect(
+            self._on_volume_density_changed
+        )
+        volume_controls.addWidget(self._volume_density_combo)
+
+        self._volume_neutral_axis_checkbox = QCheckBox("Show neutral axis", self._volume_tab)
+        self._volume_neutral_axis_checkbox.setChecked(True)
+        self._volume_neutral_axis_checkbox.stateChanged.connect(
+            self._on_volume_neutral_axis_changed
+        )
+        volume_controls.addWidget(self._volume_neutral_axis_checkbox)
+        self._volume_rgb_axes_checkbox = QCheckBox("Show RGB axes", self._volume_tab)
+        self._volume_rgb_axes_checkbox.setChecked(True)
+        self._volume_rgb_axes_checkbox.stateChanged.connect(
+            self._on_volume_rgb_axes_changed
+        )
+        volume_controls.addWidget(self._volume_rgb_axes_checkbox)
+        self._volume_reset_button = QPushButton("Reset view", self._volume_tab)
+        self._volume_reset_button.clicked.connect(self._on_volume_reset_view)
+        volume_controls.addWidget(self._volume_reset_button)
+        volume_controls.addStretch(1)
+        volume_layout.addLayout(volume_controls)
+
+        self._volume_painter_widget = LutVolumeWidget(self)
+        self._volume_gl_widget: LutVolumeGlWidget | None = None
+        self._current_volume_data: LutVolumeData | None = None
+        self._volume_widget = self._volume_painter_widget
+        self._volume_stack = QStackedWidget(self._volume_tab)
+        self._volume_stack.addWidget(self._volume_painter_widget)
+        self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+        volume_layout.addWidget(self._volume_stack, 1)
+
+        self._view_tabs.addTab(self._plot_widget, "Curves")
+        self._view_tabs.addTab(self._volume_tab, "Volume")
+        root.addWidget(self._view_tabs, 1)
+        self._on_volume_renderer_changed()
+
+        self._info_panel = QPlainTextEdit(self)
+        self._info_panel.setReadOnly(True)
+        self._info_panel.setMaximumBlockCount(32)
+        self._info_panel.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._info_panel.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._info_panel.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self._info_panel.setPlaceholderText("LUT info will appear here")
+        self._set_info_panel_text("")
+        root.addWidget(self._info_panel)
+
+        self._status_label = QLabel(
+            "Drop a .cube, .csp, .spi1d, .spi3d, .3dl, or .lut file here",
+            self,
+        )
+        self._status_label.setStyleSheet("color: #b0b0b0;")
+        root.addWidget(self._status_label)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        urls = event.mimeData().urls()
+        if urls and urls[0].isLocalFile():
+            event.acceptProposedAction()
+            return
+        event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        urls = event.mimeData().urls()
+        if not urls:
+            event.ignore()
+            return
+        path = Path(urls[0].toLocalFile())
+        self._load_lut(path)
+        event.acceptProposedAction()
+
+    def _browse_lut_file(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select LUT File",
+            "",
+            "LUT Files (*.cube *.csp *.spi1d *.spi3d *.3dl *.lut);;All Files (*)",
+        )
+        if not file_path:
+            return
+        self._load_lut(Path(file_path))
+
+    def load_lut_path(self, path: Path) -> None:
+        """Load a LUT file path into the inspector."""
+        self._load_lut(path)
+
+    def _on_volume_projection_changed(self) -> None:
+        mode = cast(VolumeProjectionMode, self._volume_projection_combo.currentData())
+        for widget in self._volume_widgets():
+            widget.set_projection_mode(mode)
+
+    def _on_volume_position_changed(self) -> None:
+        use_output_positions = bool(self._volume_position_combo.currentData())
+        for widget in self._volume_widgets():
+            widget.set_use_output_positions(use_output_positions)
+
+    def _on_volume_neutral_axis_changed(self, _state: int | None = None) -> None:
+        enabled = self._volume_neutral_axis_checkbox.isChecked()
+        for widget in self._volume_widgets():
+            widget.set_show_neutral_axis(enabled)
+
+    def _on_volume_rgb_axes_changed(self, _state: int | None = None) -> None:
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.set_show_rgb_axes(
+                self._volume_rgb_axes_checkbox.isChecked()
+            )
+
+    def _on_volume_renderer_changed(self) -> None:
+        renderer = str(self._volume_renderer_combo.currentData())
+        if renderer == "opengl":
+            gl_widget = self._ensure_volume_gl_widget()
+            self._volume_stack.setCurrentWidget(gl_widget)
+            self._volume_density_combo.setEnabled(True)
+            self._volume_reset_button.setEnabled(True)
+            self._volume_rgb_axes_checkbox.setEnabled(True)
+            self._volume_neutral_axis_checkbox.setEnabled(False)
+            gl_widget.set_volume_data(self._current_volume_data)
+            return
+        self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+        self._volume_density_combo.setEnabled(False)
+        self._volume_reset_button.setEnabled(False)
+        self._volume_rgb_axes_checkbox.setEnabled(False)
+        self._volume_neutral_axis_checkbox.setEnabled(True)
+
+    def _on_volume_density_changed(self) -> None:
+        density = cast(VolumeDensityPreset, self._volume_density_combo.currentData())
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.set_density(density)
+
+    def _on_volume_reset_view(self) -> None:
+        if self._volume_gl_widget is not None:
+            self._volume_gl_widget.reset_view()
+
+    def _on_volume_gl_initialization_failed(self, message: str) -> None:
+        qpainter_index = self._volume_renderer_combo.findData("qpainter")
+        if qpainter_index >= 0:
+            self._volume_renderer_combo.setCurrentIndex(qpainter_index)
+        else:
+            self._volume_stack.setCurrentWidget(self._volume_painter_widget)
+            self._volume_density_combo.setEnabled(False)
+            self._volume_reset_button.setEnabled(False)
+            self._volume_rgb_axes_checkbox.setEnabled(False)
+            self._volume_neutral_axis_checkbox.setEnabled(True)
+        self._status_label.setText(f"OpenGL unavailable; using QPainter renderer: {message}")
+        self._status_label.setStyleSheet("color: #ffd27f;")
+
+    def _load_lut(self, path: Path) -> None:
+        try:
+            data = load_lut_inspection_data(path)
+        except (OSError, ValueError, LutLoadError) as exc:
+            self._plot_widget.set_plot_data(None)
+            self._set_volume_data(None)
+            self._file_label.setText(str(path))
+            self._set_info_panel_text("")
+            self._status_label.setText(f"Failed to load LUT: {exc}")
+            self._status_label.setStyleSheet("color: #ff8f8f;")
+            return
+
+        self._plot_widget.set_plot_data(data.plot)
+        self._set_volume_data(data.volume)
+        self._file_label.setText(str(path))
+        self._set_info_panel_text(self._build_info_text(data.plot, data.volume))
+        if data.plot.source_kind == "3d_neutral_axis":
+            source_label = "3D neutral-axis projection"
+        elif data.plot.source_kind == "1d":
+            source_label = "1D transfer curve"
+        else:
+            source_label = data.plot.source_kind
+        volume_label = (
+            f", volume: {data.volume.size_x}x{data.volume.size_y}x{data.volume.size_z}"
+            if data.volume is not None
+            else ", volume: unavailable"
+        )
+        self._status_label.setText(
+            f"Loaded {data.plot.format.upper()} ({source_label}), channels: {data.plot.channels}{volume_label}"
+        )
+        self._status_label.setStyleSheet("color: #8fdf8f;")
+
+    def _volume_widgets(self) -> tuple[LutVolumeWidget | LutVolumeGlWidget, ...]:
+        if self._volume_gl_widget is None:
+            return (self._volume_painter_widget,)
+        return (self._volume_painter_widget, self._volume_gl_widget)
+
+    def _set_volume_data(self, volume: LutVolumeData | None) -> None:
+        self._current_volume_data = volume
+        for widget in self._volume_widgets():
+            widget.set_volume_data(volume)
+
+    def _ensure_volume_gl_widget(self) -> LutVolumeGlWidget:
+        if self._volume_gl_widget is not None:
+            return self._volume_gl_widget
+        self._volume_gl_widget = LutVolumeGlWidget(self)
+        self._volume_gl_widget.initialization_failed.connect(
+            self._on_volume_gl_initialization_failed
+        )
+        self._volume_gl_widget.set_projection_mode(
+            cast(VolumeProjectionMode, self._volume_projection_combo.currentData())
+        )
+        self._volume_gl_widget.set_use_output_positions(
+            bool(self._volume_position_combo.currentData())
+        )
+        self._volume_gl_widget.set_show_rgb_axes(
+            self._volume_rgb_axes_checkbox.isChecked()
+        )
+        self._volume_gl_widget.set_density(
+            cast(VolumeDensityPreset, self._volume_density_combo.currentData())
+        )
+        self._volume_stack.insertWidget(0, self._volume_gl_widget)
+        return self._volume_gl_widget
+
+    def _build_info_text(self, data: LutPlotData, volume: LutVolumeData | None = None) -> str:
+        summary = summarize_lut_samples(
+            data.x_values,
+            data.y_values,
+            channels=data.channels,
+        )
+        if summary is None:
+            return "No LUT sample data."
+
+        min_text, max_text, clipped, mono_text = self._format_summary_values(summary)
+        lines = [
+            f"Format: {data.format.upper()}",
+            f"Source: {data.source_kind}",
+            f"Samples: {summary.sample_count}",
+            f"Channels: {summary.channel_count}",
+            f"Domain: [{data.domain_min:.6f}, {data.domain_max:.6f}]",
+            f"Output Min: {min_text}",
+            f"Output Max: {max_text}",
+            f"Out of [0,1]: {clipped}",
+            f"Monotonic: {mono_text}",
+        ]
+        if volume is not None:
+            lines.extend(
+                [
+                    f"3D Size: {volume.size_x} x {volume.size_y} x {volume.size_z}",
+                    f"Volume Samples: {volume.size_x * volume.size_y * volume.size_z}",
+                ]
+            )
+        else:
+            lines.append("Volume: unavailable")
+        if data.csp_has_shaper is not None:
+            lines.append(f"CSP Shaper: {'yes' if data.csp_has_shaper else 'no'}")
+        return "\n".join(lines)
+
+    def _format_summary_values(self, summary: LutAnalysisSummary) -> tuple[str, str, str, str]:
+        channel_names = ["R", "G", "B"] if summary.channel_count > 1 else ["Y"]
+        min_text = ", ".join(
+            f"{channel_names[idx]}={summary.output_min[idx]:.4f}"
+            for idx in range(summary.channel_count)
+        )
+        max_text = ", ".join(
+            f"{channel_names[idx]}={summary.output_max[idx]:.4f}"
+            for idx in range(summary.channel_count)
+        )
+        clipped = (
+            "yes"
+            if (summary.has_values_below_zero or summary.has_values_above_one)
+            else "no"
+        )
+        mono_text = ", ".join(
+            f"{channel_names[idx]}={'yes' if summary.monotonic_channels[idx] else 'no'}"
+            for idx in range(summary.channel_count)
+        )
+        return min_text, max_text, clipped, mono_text
+
+    def _set_info_panel_text(self, text: str) -> None:
+        self._info_panel.setPlainText(text)
+        self._resize_info_panel_to_content()
+
+    def _resize_info_panel_to_content(self) -> None:
+        doc = self._info_panel.document()
+        font_metrics = self._info_panel.fontMetrics()
+        line_height = max(font_metrics.lineSpacing(), 14)
+        lines = max(int(doc.blockCount()), 1)
+        margins = 12
+        target_height = (line_height * lines) + margins
+        self._info_panel.setFixedHeight(target_height)

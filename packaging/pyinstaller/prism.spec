@@ -12,6 +12,10 @@ from PyInstaller.utils.hooks import copy_metadata
 ROOT = Path(SPECPATH).parents[1]
 SRC = ROOT / "src"
 
+# Prism uses colour-science for numeric colour data, not optional plotting APIs.
+# Keep Colour's optional Matplotlib usage warning out of PyInstaller analysis logs.
+os.environ.setdefault("COLOUR_SCIENCE__FILTER_USAGE_WARNINGS", "True")
+
 
 def _package_dir(module_name: str) -> Path | None:
     spec = util.find_spec(module_name)

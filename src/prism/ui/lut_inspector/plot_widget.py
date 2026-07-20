@@ -7,7 +7,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QWidget
 
-from prism.io.lut_loader import LutPlotData
+from prism.io.lut.loader import LutPlotData
 
 
 class LutPlotWidget(QWidget):

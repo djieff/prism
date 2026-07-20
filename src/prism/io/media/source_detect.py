@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from prism.core.frame_source import SourceKind
-from prism.io.sequence_loader import detect_sequence_files
+from prism.io.media.sequence_loader import detect_sequence_files
 
 _MOVIE_EXTENSIONS = {".mov", ".mp4", ".mxf", ".avi", ".mkv", ".webm"}
 

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from prism.io.sequence_loader import detect_sequence_files
+from prism.io.media.sequence_loader import detect_sequence_files
 
 
 class SequenceLoaderTests(unittest.TestCase):

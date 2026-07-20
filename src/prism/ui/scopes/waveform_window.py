@@ -15,14 +15,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from prism.core.scope_waveform import WaveformMode, build_waveform_view_data
-from prism.core.scope_waveform_science import (
+from prism.core.scopes.waveform import WaveformMode, build_waveform_view_data
+from prism.core.scopes.waveform_science import (
     DEFAULT_WAVEFORM_SIGNAL_STANDARD,
     SUPPORTED_WAVEFORM_SIGNAL_STANDARDS,
     WaveformSignalStandard,
 )
 from prism.core.viewer_state import ViewerSide
-from prism.ui.waveform_plot_widget import SignalMode, WaveformPlotWidget
+from prism.ui.scopes.waveform_plot_widget import SignalMode, WaveformPlotWidget
 
 
 class WaveformWindow(QWidget):

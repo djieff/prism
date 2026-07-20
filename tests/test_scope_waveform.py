@@ -7,12 +7,12 @@ from typing import cast
 import numpy as np
 import pytest
 
-from prism.core.scope_waveform import (
+from prism.core.scopes.waveform import (
     WaveformMode,
     build_waveform_trace,
     build_waveform_view_data,
 )
-from prism.core.scope_waveform_science import DEFAULT_WAVEFORM_SIGNAL_STANDARD
+from prism.core.scopes.waveform_science import DEFAULT_WAVEFORM_SIGNAL_STANDARD
 
 
 def test_build_waveform_trace_rejects_invalid_shape() -> None:

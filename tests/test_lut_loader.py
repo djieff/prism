@@ -7,8 +7,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from prism.io import lut_loader
-from prism.io.lut_loader import LutLoadError, load_lut_plot_data
+from prism.io.lut import loader as lut_loader
+from prism.io.lut.loader import (
+    LutLoadError,
+    load_lut_inspection_data,
+    load_lut_plot_data,
+    load_lut_volume_data,
+)
 
 
 class LutLoaderTests(unittest.TestCase):
@@ -121,6 +126,55 @@ class LutLoaderTests(unittest.TestCase):
             self.assertEqual(data.channels, 3)
             self.assertEqual(data.x_values.shape[0], 4)
             self.assertEqual(data.y_values.shape, (4, 3))
+            self.assertIsNone(load_lut_volume_data(lut_path))
+
+    def test_loads_synthetic_3d_cube_volume_with_red_fastest_axis_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            lut_path = Path(tmp) / "axis_probe.cube"
+            rows = [
+                'TITLE "Axis Probe"',
+                "DOMAIN_MIN 0.0 0.0 0.0",
+                "DOMAIN_MAX 1.0 1.0 1.0",
+                "LUT_3D_SIZE 2",
+            ]
+            for z in range(2):
+                for y in range(2):
+                    for x in range(2):
+                        rows.append(f"{x:.1f} {y:.1f} {z:.1f}")
+            lut_path.write_text("\n".join(rows), encoding="utf-8")
+
+            inspection = load_lut_inspection_data(lut_path)
+
+            self.assertEqual(inspection.plot.source_kind, "3d_neutral_axis")
+            self.assertIsNotNone(inspection.volume)
+            volume = inspection.volume
+            assert volume is not None
+            self.assertEqual(volume.format, "cube")
+            self.assertEqual((volume.size_x, volume.size_y, volume.size_z), (2, 2, 2))
+            self.assertEqual(volume.values.shape, (2, 2, 2, 3))
+            self.assertTrue((abs(volume.values[1, 0, 0] - [0.0, 0.0, 1.0]) < 1e-6).all())
+            self.assertTrue((abs(volume.values[0, 1, 0] - [0.0, 1.0, 0.0]) < 1e-6).all())
+            self.assertTrue((abs(volume.values[0, 0, 1] - [1.0, 0.0, 0.0]) < 1e-6).all())
+
+    def test_loads_synthetic_spi3d_volume_by_explicit_indices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            lut_path = Path(tmp) / "axis_probe.spi3d"
+            rows = ["SPILUT 1.0", "3 3", "2 2 2"]
+            for z in range(2):
+                for y in range(2):
+                    for x in range(2):
+                        rows.append(f"{x} {y} {z} {x:.1f} {y:.1f} {z:.1f}")
+            lut_path.write_text("\n".join(rows), encoding="utf-8")
+
+            volume = load_lut_volume_data(lut_path)
+
+            self.assertIsNotNone(volume)
+            assert volume is not None
+            self.assertEqual(volume.format, "spi3d")
+            self.assertEqual((volume.size_x, volume.size_y, volume.size_z), (2, 2, 2))
+            self.assertTrue((abs(volume.values[1, 0, 0] - [0.0, 0.0, 1.0]) < 1e-6).all())
+            self.assertTrue((abs(volume.values[0, 1, 0] - [0.0, 1.0, 0.0]) < 1e-6).all())
+            self.assertTrue((abs(volume.values[0, 0, 1] - [1.0, 0.0, 0.0]) < 1e-6).all())
 
     def test_loads_synthetic_shaped_csp_with_interpolated_neutral_axis(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -162,6 +216,42 @@ class LutLoaderTests(unittest.TestCase):
             self.assertTrue(
                 (abs(data.y_values[2] - [1.0, 1.0, 1.0]) < 1e-6).all()
             )
+
+            volume = load_lut_volume_data(lut_path)
+
+            self.assertIsNotNone(volume)
+            assert volume is not None
+            self.assertEqual(volume.format, "csp")
+            self.assertEqual((volume.size_x, volume.size_y, volume.size_z), (3, 3, 3))
+            self.assertEqual(volume.values.shape, (3, 3, 3, 3))
+            self.assertTrue(volume.has_shaper)
+
+    def test_loads_sample_volume_data_for_supported_3d_formats(self) -> None:
+        fixtures = [
+            ("*.cube", "cube"),
+            ("*.csp", "csp"),
+            ("*.spi3d", "spi3d"),
+            ("*.3dl", "3dl"),
+        ]
+        for pattern, expected_format in fixtures:
+            with self.subTest(pattern=pattern):
+                path = self._fixture(pattern)
+                volume = load_lut_volume_data(path)
+                self.assertIsNotNone(volume)
+                assert volume is not None
+                self.assertEqual(volume.format, expected_format)
+                self.assertEqual(volume.values.shape, (volume.size_z, volume.size_y, volume.size_x, 3))
+                self.assertGreater(volume.size_x, 1)
+                self.assertGreater(volume.size_y, 1)
+                self.assertGreater(volume.size_z, 1)
+
+    def test_load_lut_inspection_data_preserves_curve_and_curve_only_state(self) -> None:
+        path = self._fixture("*.spi1d")
+
+        inspection = load_lut_inspection_data(path)
+
+        self.assertEqual(inspection.plot.source_kind, "1d")
+        self.assertIsNone(inspection.volume)
 
     def test_raises_for_unsupported_extension(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
