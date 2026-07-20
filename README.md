@@ -311,14 +311,16 @@ Curves tab:
   neutral-axis curve inspection, while direct lattice extraction is preserved
   for unshaped 3D LUT neutral-axis curves
 
+![LUT_inspector_curves_mix.png](docs/images/readme/LUT_inspector_curves_mix.png)
 
 Volume tab:
 
-* displays 3D LUTs as a square projected RGB point-cloud preview
-* Volume controls include:
+* displays 3D LUTs as RGB point-cloud previews
+* `Renderer` switches between the default `QPainter` preview and the
+  interactive `OpenGL` preview
+* shared Volume controls include:
   * `Projection`: `RGB isometric`, `RG plane`, `RB plane`, or `GB plane`
   * `Position`: `Output cloud` or `Source RGB lattice`
-  * `Show neutral axis`
 * plane projections use direct channel axes:
   * `RG plane`: horizontal `R`, vertical `G`
   * `RB plane`: horizontal `R`, vertical `B`
@@ -327,10 +329,31 @@ Volume tab:
   LUT warping/compression visible
 * `Source RGB lattice` keeps points on the original regular RGB cube positions while
   still colouring them by transformed LUT output RGB values
-* the neutral-axis overlay highlights the input grayscale diagonal (`R=G=B`)
-  over the volume preview
+
+QPainter volume preview:
+
+* renders a square projected point-cloud preview without requiring an OpenGL context
+* supports the shared projection and position controls
+* supports `Show neutral axis`, which highlights the input grayscale diagonal
+  (`R=G=B`) over the volume preview
 * large 3D LUTs are automatically decimated for preview responsiveness; the
   status text reports rendered samples versus total volume samples
+
+![LUT_inspector_volumes_qpainter_mix.png](docs/images/readme/LUT_inspector_volumes_qpainter_mix.png)
+
+
+OpenGL volume preview:
+
+* renders an interactive 3D point cloud for supported systems with an available
+  OpenGL context
+* supports the shared projection and position controls
+* supports `Density`: `Low`, `Medium`, or `High`
+* supports `Show RGB axes` for orientation in RGB space
+* supports mouse orbit in `RGB isometric`, pan in plane projections, wheel zoom,
+  double-click reset, and the `Reset view` button
+* falls back to the QPainter renderer if OpenGL initialization is unavailable
+
+![LUT_inspector_volumes_opengl_mix.png](docs/images/readme/LUT_inspector_volumes_opengl_mix.png)
 
 ---
 
@@ -395,12 +418,18 @@ Includes:
 
 * Prism version
 * Python version
+* Python executable
+* Frozen/build mode
+* Platform and Qt platform plugin
 * Qt / PySide version
 * NumPy version
+* SciPy version
+* colour-science version
 * OpenImageIO version
 * OpenColorIO version
+* OpenCV version
 * Active OCIO config
-* Platform information
+* Working directory
 
 Useful for:
 

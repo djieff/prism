@@ -48,7 +48,6 @@ def _run_frozen_smoke() -> int:
     """Run non-interactive checks for frozen desktop bundles."""
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-    import colour  # noqa: F401
     import numpy as np
     import OpenImageIO  # noqa: F401
     import PyOpenColorIO  # noqa: F401
@@ -89,7 +88,7 @@ def _run_frozen_smoke() -> int:
 
     coeffs = waveform_y_prime_coefficients("ITU-R BT.709")
     if coeffs.shape != (3,):
-        raise RuntimeError("Colour waveform coefficient smoke check failed")
+        raise RuntimeError("Waveform coefficient smoke check failed")
 
     cube = np.zeros((2, 2, 2, 3), dtype=np.float32)
     cube[1, 1, 1] = 1.0
