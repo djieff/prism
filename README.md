@@ -63,6 +63,7 @@ Prism aims to make that process faster and more direct.
 * Edit OCIO context variables live
 * Inspect LUT transfer curves in a dedicated modeless LUT window
 * Inspect waveform scopes in a dedicated modeless waveform monitor
+* Inspect CIE xy chromaticity and RGB gamut fit in a dedicated modeless monitor
 * Navigate synchronized A/B views
 * Toggle transform bypass per image
 * Use EXR, DPX, JPG, PNG, TIFF, and other common formats
@@ -410,6 +411,52 @@ Behavior:
 
 ---
 
+# CIE xy Chromaticity Monitor
+
+Open from:
+
+* `View -> Monitoring -> CIE xy Chromaticity`
+
+Behavior:
+
+* opens as a modeless utility window
+* inspects each side's float RGB analysis buffer:
+  * post-OCIO output when a transform is active
+  * loaded source data when transform setup is incomplete or bypassed
+  * before global exposure/luminance and channel-view presentation controls
+* source modes mirror main viewer compare naming:
+  * `Full (A)`
+  * `Full (B)`
+  * `Split`
+* source mode is synchronized with main compare mode for supported modes:
+  * changing mode in the CIE xy window updates main viewer mode
+  * changing main viewer mode updates the CIE xy mode
+  * opening the CIE xy window initializes from current main mode
+* `Wipe` and `Diff` are currently unsupported in CIE xy mode mapping:
+  * the monitor shows blank graphs with an explicit unsupported-mode message
+* analyzes the current viewer RGB signal using Prism's display-viewer
+  interpretation; there is no separate input-colorspace control in the monitor
+* three global gamut overlay controls draw reference RGB triangles:
+  * each can be set to `None`
+  * duplicate overlay selections are drawn once
+  * selected overlays appear on A, B, and both panes in `Split`
+  * overlays do not change image point computation
+* `White Point` can be set to `None`, `D50`, `D55`, `D60`, `D65`, `D75`, or
+  `DCI-P3`; this only changes the marker overlay, not the analyzed image colors
+* `Trace Color` can be set to `Normal` or `Boosted`; this only changes how the
+  density trace colors are rendered for visibility, not xy analysis
+* draws the CIE 1931 xy spectral locus from numerical Colour Science data
+* ignores black samples where chromaticity is undefined
+* clamps sampled RGB values to `[0, 1]` for this first display-normalized monitor
+* supports drag-and-drop image loading directly from the CIE xy window:
+  * `Full (A)` drops load side `A`
+  * `Full (B)` drops load side `B`
+  * `Split` drops route by pane (`left -> A`, `right -> B`)
+  * dropped images are loaded into the main viewer, so monitor and viewer state
+    remain synchronized
+
+---
+
 # Diagnostics
 
 Prism includes a diagnostics window for quickly validating runtime dependencies and OCIO environment state.
@@ -570,8 +617,6 @@ Still-image workflows remain fully functional without them.
 
 # Planned Features
 
-* Vectorscope
-* Chromaticity Diagram and gamut visualization
 * Transform breakdown visualization
 * Nuke integration
 * Resolve integration

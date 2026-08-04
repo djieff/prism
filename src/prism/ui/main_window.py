@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
 from prism import __version__ as prism_version
 from prism.core.frame_service import FrameService
 from prism.core.ocio_processor import apply_ocio_transform, build_ocio_processor
+from prism.core.scopes.cie_xy import CieXyMode
 from prism.core.scopes.vectorscope import VectorscopeMode
 from prism.core.scopes.waveform import WaveformMode
 from prism.core.source_models import create_source_from_path
@@ -79,6 +80,7 @@ from prism.io.ocio_config import (
 from prism.ui.compare_view import CompareView
 from prism.ui.context_variables_dock import ContextVariablesDock
 from prism.ui.lut_inspector.window import LutInspectionWindow
+from prism.ui.scopes.cie_xy_window import CieXyWindow
 from prism.ui.scopes.vectorscope_window import VectorscopeWindow
 from prism.ui.scopes.waveform_window import WaveformWindow
 from prism.ui.status_formatters import panel_frame_suffix, persistent_status_message, side_label
@@ -140,6 +142,7 @@ class MainWindow(QMainWindow):
         self._hotkeys_action: QAction | None = None
         self._hotkeys_dialog: QDialog | None = None
         self._lut_inspection_window: LutInspectionWindow | None = None
+        self._cie_xy_window: CieXyWindow | None = None
         self._vectorscope_window: VectorscopeWindow | None = None
         self._waveform_window: WaveformWindow | None = None
         self._viewer_background_group: QActionGroup | None = None
@@ -455,6 +458,9 @@ class MainWindow(QMainWindow):
         vectorscope_action = QAction("Vectorscope", self)
         vectorscope_action.triggered.connect(self._show_vectorscope_window)
         monitoring_menu.addAction(vectorscope_action)
+        cie_xy_action = QAction("CIE xy Chromaticity", self)
+        cie_xy_action.triggered.connect(self._show_cie_xy_window)
+        monitoring_menu.addAction(cie_xy_action)
 
         background_menu = view_menu.addMenu("Background")
         self._viewer_background_group = QActionGroup(self)
@@ -599,11 +605,31 @@ class MainWindow(QMainWindow):
         window.activateWindow()
         self._update_vectorscope_window_if_open()
 
+    def _show_cie_xy_window(self) -> None:
+        window = self._cie_xy_window
+        if window is None:
+            window = CieXyWindow(
+                self,
+                on_drop_file=self._handle_cie_xy_drop_file,
+                on_source_mode_changed=self._handle_cie_xy_source_mode_changed,
+            )
+            window.setAttribute(Qt.WA_DeleteOnClose, True)
+            window.destroyed.connect(self._on_cie_xy_window_destroyed)
+            self._cie_xy_window = window
+        self._sync_cie_xy_mode_from_main_if_open()
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        self._update_cie_xy_window_if_open()
+
     def _on_hotkeys_dialog_destroyed(self) -> None:
         self._hotkeys_dialog = None
 
     def _on_lut_inspection_window_destroyed(self) -> None:
         self._lut_inspection_window = None
+
+    def _on_cie_xy_window_destroyed(self) -> None:
+        self._cie_xy_window = None
 
     def _on_vectorscope_window_destroyed(self) -> None:
         self._vectorscope_window = None
@@ -617,7 +643,23 @@ class MainWindow(QMainWindow):
     def _handle_waveform_drop_file(self, file_path: str, target_side: ViewerSide) -> None:
         self._handle_dropped_file(file_path, requested_side=target_side)
 
+    def _handle_cie_xy_drop_file(self, file_path: str, target_side: ViewerSide) -> None:
+        self._handle_dropped_file(file_path, requested_side=target_side)
+
     def _handle_vectorscope_source_mode_changed(self, mode: VectorscopeMode) -> None:
+        if mode == "A":
+            self._activate_compare_mode("full")
+            if self._compare_state.active_side != "left":
+                self._set_active_side("left")
+            return
+        if mode == "B":
+            self._activate_compare_mode("full")
+            if self._compare_state.active_side != "right":
+                self._set_active_side("right")
+            return
+        self._activate_compare_mode("split")
+
+    def _handle_cie_xy_source_mode_changed(self, mode: CieXyMode) -> None:
         if mode == "A":
             self._activate_compare_mode("full")
             if self._compare_state.active_side != "left":
@@ -658,6 +700,27 @@ class MainWindow(QMainWindow):
         if mode == "full":
             return "A" if self._compare_state.active_side == "left" else "B"
         return None
+
+    def _main_view_mode_to_cie_xy_mode(self) -> CieXyMode | None:
+        mode = self._compare_view_state.mode
+        if mode == "split":
+            return "A|B"
+        if mode == "full":
+            return "A" if self._compare_state.active_side == "left" else "B"
+        return None
+
+    def _sync_cie_xy_mode_from_main_if_open(self) -> None:
+        window = self._cie_xy_window
+        if window is None:
+            return
+        if self._compare_view_state.mode in {"wipe", "diff"}:
+            window.set_unsupported_main_mode(self._compare_view_state.mode.capitalize())
+            return
+        window.set_unsupported_main_mode(None)
+        cie_xy_mode = self._main_view_mode_to_cie_xy_mode()
+        if cie_xy_mode is None:
+            return
+        window.set_source_mode(cie_xy_mode)
 
     def _sync_vectorscope_mode_from_main_if_open(self) -> None:
         window = self._vectorscope_window
@@ -1035,6 +1098,7 @@ class MainWindow(QMainWindow):
         self._set_active_side_status(self._compare_state.active_side)
         self._sync_waveform_mode_from_main_if_open()
         self._sync_vectorscope_mode_from_main_if_open()
+        self._sync_cie_xy_mode_from_main_if_open()
 
     def _on_context_values_changed(self, values: dict[str, str]) -> None:
         self._ocio_context_values = dict(values)
@@ -1786,6 +1850,7 @@ class MainWindow(QMainWindow):
         self._sync_compare_mode_combo_from_state()
         self._sync_waveform_mode_from_main_if_open()
         self._sync_vectorscope_mode_from_main_if_open()
+        self._sync_cie_xy_mode_from_main_if_open()
         self._refresh_side_with_active_status(new_side)
         self._update_frame_controls()
 
@@ -2121,6 +2186,7 @@ class MainWindow(QMainWindow):
         self.compare_view.set_diff_image(self._diff_display_image)
         self._update_waveform_window_if_open()
         self._update_vectorscope_window_if_open()
+        self._update_cie_xy_window_if_open()
 
     def _refresh_display_from_cached_buffers(self) -> None:
         for side in ("left", "right"):
@@ -2141,6 +2207,15 @@ class MainWindow(QMainWindow):
 
     def _update_vectorscope_window_if_open(self) -> None:
         window = self._vectorscope_window
+        if window is None:
+            return
+        window.set_processed_buffers(
+            self._processed_display_buffers["left"],
+            self._processed_display_buffers["right"],
+        )
+
+    def _update_cie_xy_window_if_open(self) -> None:
+        window = self._cie_xy_window
         if window is None:
             return
         window.set_processed_buffers(

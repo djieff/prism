@@ -23,6 +23,7 @@ def _make_window_for_logic() -> MainWindow:
     window._compare_state = CompareState()
     window._compare_view_state = CompareViewState()
     window._processed_display_buffers = {"left": None, "right": None}
+    window._cie_xy_window = None
     window._vectorscope_window = None
     window._waveform_window = None
     window.compare_view = _CompareViewStub()
@@ -66,6 +67,10 @@ class _WaveformWindowStub:
 
 
 class _VectorscopeWindowStub(_WaveformWindowStub):
+    pass
+
+
+class _CieXyWindowStub(_WaveformWindowStub):
     pass
 
 
@@ -237,6 +242,19 @@ def test_update_vectorscope_window_if_open_pushes_buffers() -> None:
     assert vectorscope.buffers == [(buffer_a, buffer_b)]
 
 
+def test_update_cie_xy_window_if_open_pushes_buffers() -> None:
+    window = _make_window_for_logic()
+    cie_xy = _CieXyWindowStub(window)
+    buffer_a = np.zeros((2, 2, 3), dtype=np.float32)
+    buffer_b = np.ones((2, 2, 3), dtype=np.float32)
+    window._cie_xy_window = cie_xy
+    window._processed_display_buffers = {"left": buffer_a, "right": buffer_b}
+
+    window._update_cie_xy_window_if_open()
+
+    assert cie_xy.buffers == [(buffer_a, buffer_b)]
+
+
 def test_show_waveform_window_creates_then_reuses_window(monkeypatch) -> None:
     window = _make_window_for_logic()
     monkeypatch.setattr(main_window_module, "WaveformWindow", _WaveformWindowStub)
@@ -273,6 +291,24 @@ def test_show_vectorscope_window_creates_then_reuses_window(monkeypatch) -> None
     assert first.activate_calls == 2
 
 
+def test_show_cie_xy_window_creates_then_reuses_window(monkeypatch) -> None:
+    window = _make_window_for_logic()
+    monkeypatch.setattr(main_window_module, "CieXyWindow", _CieXyWindowStub)
+
+    window._show_cie_xy_window()
+    first = window._cie_xy_window
+    assert first is not None
+    assert first.show_calls == 1
+    assert first.raise_calls == 1
+    assert first.activate_calls == 1
+
+    window._show_cie_xy_window()
+    assert window._cie_xy_window is first
+    assert first.show_calls == 2
+    assert first.raise_calls == 2
+    assert first.activate_calls == 2
+
+
 def test_handle_waveform_drop_file_delegates_to_main_drop_handler(monkeypatch) -> None:
     window = _make_window_for_logic()
     calls: list[tuple[str, str]] = []
@@ -299,6 +335,20 @@ def test_handle_vectorscope_drop_file_delegates_to_main_drop_handler(monkeypatch
     window._handle_vectorscope_drop_file("C:/tmp/test.exr", "right")
 
     assert calls == [("C:/tmp/test.exr", "right")]
+
+
+def test_handle_cie_xy_drop_file_delegates_to_main_drop_handler(monkeypatch) -> None:
+    window = _make_window_for_logic()
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        window,
+        "_handle_dropped_file",
+        lambda file_path, requested_side=None: calls.append((file_path, requested_side)),
+    )
+
+    window._handle_cie_xy_drop_file("C:/tmp/test.exr", "left")
+
+    assert calls == [("C:/tmp/test.exr", "left")]
 
 
 def test_main_view_mode_to_waveform_mode_mapping() -> None:
@@ -335,6 +385,23 @@ def test_main_view_mode_to_vectorscope_mode_mapping() -> None:
     assert window._main_view_mode_to_vectorscope_mode() is None
 
 
+def test_main_view_mode_to_cie_xy_mode_mapping() -> None:
+    window = _make_window_for_logic()
+
+    window._compare_view_state.mode = "split"
+    assert window._main_view_mode_to_cie_xy_mode() == "A|B"
+
+    window._compare_view_state.mode = "full"
+    window._compare_state.active_side = "left"
+    assert window._main_view_mode_to_cie_xy_mode() == "A"
+
+    window._compare_state.active_side = "right"
+    assert window._main_view_mode_to_cie_xy_mode() == "B"
+
+    window._compare_view_state.mode = "wipe"
+    assert window._main_view_mode_to_cie_xy_mode() is None
+
+
 def test_sync_waveform_mode_from_main_if_open_updates_window_mode() -> None:
     window = _make_window_for_logic()
     waveform = _WaveformWindowStub(window)
@@ -359,6 +426,19 @@ def test_sync_vectorscope_mode_from_main_if_open_updates_window_mode() -> None:
 
     assert vectorscope.unsupported_main_mode is None
     assert vectorscope.source_mode == "A"
+
+
+def test_sync_cie_xy_mode_from_main_if_open_updates_window_mode() -> None:
+    window = _make_window_for_logic()
+    cie_xy = _CieXyWindowStub(window)
+    window._cie_xy_window = cie_xy
+    window._compare_view_state.mode = "full"
+    window._compare_state.active_side = "right"
+
+    window._sync_cie_xy_mode_from_main_if_open()
+
+    assert cie_xy.unsupported_main_mode is None
+    assert cie_xy.source_mode == "B"
 
 
 def test_sync_waveform_mode_marks_unsupported_for_wipe_and_diff() -> None:
@@ -387,3 +467,17 @@ def test_sync_vectorscope_mode_marks_unsupported_for_wipe_and_diff() -> None:
     window._compare_view_state.mode = "diff"
     window._sync_vectorscope_mode_from_main_if_open()
     assert vectorscope.unsupported_main_mode == "Diff"
+
+
+def test_sync_cie_xy_mode_marks_unsupported_for_wipe_and_diff() -> None:
+    window = _make_window_for_logic()
+    cie_xy = _CieXyWindowStub(window)
+    window._cie_xy_window = cie_xy
+
+    window._compare_view_state.mode = "wipe"
+    window._sync_cie_xy_mode_from_main_if_open()
+    assert cie_xy.unsupported_main_mode == "Wipe"
+
+    window._compare_view_state.mode = "diff"
+    window._sync_cie_xy_mode_from_main_if_open()
+    assert cie_xy.unsupported_main_mode == "Diff"

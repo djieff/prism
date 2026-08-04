@@ -15,6 +15,8 @@
 - `lut/analysis.py`
 - `lut/interpolation.py`
 - `lut/volume_projection.py`
+- `scopes/cie_xy.py`
+- `scopes/vectorscope.py`
 - `scopes/waveform.py`
 - `scopes/waveform_science.py`
 
@@ -73,6 +75,32 @@
   stays responsive.
 - Selects neutral-axis samples from input lattice diagonal indices for the UI
   overlay; this keeps the reference stable even when output RGB is warped.
+
+### `scopes/cie_xy.py`
+- Builds deterministic CIE 1931 xy chromaticity traces from float RGB analysis
+  buffers.
+- Converts viewer RGB values to XYZ before computing xy chromaticity. The UI
+  uses Prism's viewer/display RGB interpretation; the core still exposes
+  Colour Science-backed RGB colourspace data for deterministic conversion and
+  tests.
+- Clamps sampled RGB values to `[0, 1]` for the first display-normalized monitor
+  contract.
+- Ignores black/zero samples where `X + Y + Z <= 0` because chromaticity is
+  undefined.
+- Builds normalized density and color-density grids over fixed xy bounds
+  (`x: 0.0..0.8`, `y: 0.0..0.9`).
+- Exposes CIE 1931 spectral locus xy coordinates from numerical Colour Science
+  CMF data, without using plotting APIs.
+- Provides reference gamut overlay contracts and de-duplicates selected overlay
+  names while preserving selection order.
+
+### `scopes/vectorscope.py`
+- Builds deterministic component chroma traces from float RGB analysis buffers.
+- Uses explicit BT.709/BT.2020 encoded-signal coefficients for the Cb/Cr-style
+  chroma calculation.
+- Records signal-standard, coefficients, plot scale, normalized density, and
+  source-color density in `VectorscopeTrace`.
+- Keeps vectorscope math separate from colourimetric CIE xy conversion.
 
 ### `scopes/waveform.py`
 - Builds deterministic raw R, G, B, and encoded Y' density grids from float RGB

@@ -91,7 +91,8 @@ dist\pyinstaller\Prism\Prism.exe
   - `pip check` passes
   - `Prism.exe --frozen-smoke` prints `prism_frozen_smoke_ok`
   - hidden/offscreen startup smoke passes
-  - manual desktop smoke confirms image loading, Waveform Monitor, and LUT Inspector
+  - manual desktop smoke confirms image loading, Waveform Monitor, Vectorscope,
+    CIE xy Chromaticity, and LUT Inspector
 
 ### Linux
 - Future packaged builds may provide a `.desktop` launcher for desktop integration and application menus.

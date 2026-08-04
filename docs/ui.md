@@ -15,6 +15,10 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - `lut_inspector/window.py`
 - `lut_inspector/plot_widget.py`
 - `lut_inspector/volume_widget.py`
+- `scopes/cie_xy_window.py`
+- `scopes/cie_xy_plot_widget.py`
+- `scopes/vectorscope_window.py`
+- `scopes/vectorscope_plot_widget.py`
 - `scopes/waveform_window.py`
 - `scopes/waveform_plot_widget.py`
 
@@ -93,8 +97,61 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Consumes projected data from `core.lut.volume_projection`; it does not parse
   LUT files or own sampling rules.
 
+### `scopes/cie_xy_window.py`
+- Modeless CIE xy chromaticity utility window opened from
+  `View -> Monitoring -> CIE xy Chromaticity`.
+- Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
+- Analyzes the current viewer RGB signal using Prism's display-viewer
+  interpretation. The window does not expose a separate input-colorspace
+  selector.
+- Hosts exactly three global gamut overlay selectors. Each selector can be
+  `None`, duplicate overlays are de-duplicated by the plot widget, and selected
+  overlays are shared across A, B, and both `Split` panes.
+- Hosts a `White Point` selector for `None`, `D50`, `D55`, `D60`, `D65`,
+  `D75`, and `DCI-P3` marker overlays without changing image chromaticity
+  analysis.
+- Hosts a `Trace Color` selector for `Normal` or `Boosted` trace-color
+  rendering without changing image chromaticity analysis.
+- Consumes per-side float analysis buffers from main window and routes CIE xy
+  view data to plot widgets. Buffers are post-OCIO when a transform is active,
+  but may be untransformed in bypass/incomplete-config paths.
+- Analysis occurs before global exposure/luminance and channel-view presentation
+  controls.
+- Mirrors waveform/vectorscope lifecycle and mode sync: `Full (A)`, `Full (B)`,
+  and `Split` are synchronized with the main viewer; `Wipe` and `Diff` show an
+  explicit unsupported state.
+
+### `scopes/cie_xy_plot_widget.py`
+- Renders a CIE 1931 xy graph with fixed bounds, grid, axis labels, numerical
+  spectral locus, optional white point marker, selected gamut triangles, and image
+  density.
+- Rebuilds a cached density `QImage` from `CieXyTrace` data and validates
+  density shape, finite values, and non-negative values.
+- Supports normal source-color rendering and boosted source-color rendering for
+  display readability; both modes use the same xy density data.
+- Draws empty graph context even when no trace is available, so gamut overlays
+  and the CIE reference remain visible.
+- Keeps overlay state display-only; it does not alter image chromaticity
+  computation.
+
+### `scopes/vectorscope_window.py`
+- Modeless vectorscope utility window opened from `View -> Monitoring -> Vectorscope`.
+- Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
+- Supports explicit `BT.709` and `BT.2020` standards for component chroma
+  calculation.
+- Consumes per-side float analysis buffers from main window and routes
+  vectorscope data to plot widgets.
+- Mirrors waveform mode sync behavior for `Full (A)`, `Full (B)`, and `Split`;
+  `Wipe` and `Diff` show an explicit unsupported state.
+
+### `scopes/vectorscope_plot_widget.py`
+- Renders normalized chroma density with circular graticule, target boxes, and
+  optional source-color density.
+- Keeps the component-chroma presentation separate from colourimetric CIE xy
+  plotting.
+
 ### `scopes/waveform_window.py`
-- Modeless waveform utility window opened from `View -> Waveform Monitor`.
+- Modeless waveform utility window opened from `View -> Monitoring -> Waveform Monitor`.
 - Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
 - Supports explicit `BT.709` and `BT.2020` standards for the encoded `Y'` trace.
 - Defaults to BT.709 and does not infer standards from arbitrary OCIO names.

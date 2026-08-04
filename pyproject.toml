@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prism-viewer"
-version = "1.4.0"
+version = "1.5.0"
 description = "OCIO image inspection and color pipeline validation"
 readme = "README.md"
 license = "MIT"
