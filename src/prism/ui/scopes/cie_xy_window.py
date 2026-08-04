@@ -40,8 +40,8 @@ class CieXyWindow(QWidget):
         self._mode: CieXyMode = "A"
         self._overlay_names: tuple[str | None, str | None, str | None] = (
             "sRGB",
-            "Display P3",
-            "ITU-R BT.2020",
+            "ACEScg",
+            "ARRI Wide Gamut 4",
         )
         self._whitepoint_name: str | None = "D65"
         self._trace_color_mode: TraceColorMode = "boosted"

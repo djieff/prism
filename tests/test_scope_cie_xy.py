@@ -151,21 +151,28 @@ def test_get_cie_rgb_space_returns_overlay_contract_values() -> None:
     )
 
 
-def test_available_cie_rgb_spaces_and_overlays_put_common_spaces_first() -> None:
+def test_available_cie_rgb_spaces_and_overlays_are_alphabetical() -> None:
     names = available_cie_rgb_space_names()
     overlays = available_cie_gamut_overlays()
 
-    assert names[:8] == (
-        "sRGB",
-        "ITU-R BT.709",
-        "Display P3",
-        "DCI-P3",
-        "Adobe RGB (1998)",
-        "ITU-R BT.2020",
+    assert names == tuple(sorted(names, key=str.casefold))
+    assert {
+        "ARRI Wide Gamut 3",
+        "ARRI Wide Gamut 4",
         "ACEScg",
         "ACES2065-1",
+        "DRAGONcolor",
+        "DRAGONcolor2",
+        "REDWideGamutRGB",
+        "S-Gamut",
+        "S-Gamut3",
+        "S-Gamut3.Cine",
+        "Venice S-Gamut3",
+        "Venice S-Gamut3.Cine",
+    }.issubset(names)
+    assert tuple(overlay.name for overlay in overlays) == tuple(
+        get_cie_rgb_space(name).name for name in names
     )
-    assert tuple(overlay.name for overlay in overlays[:8]) == names[:8]
 
 
 def test_available_cie_whitepoints_and_lookup_use_colour_science_values() -> None:

@@ -22,17 +22,6 @@ DEFAULT_CIE_RGB_SPACE = "sRGB"
 CIE_XY_X_RANGE = (0.0, 0.8)
 CIE_XY_Y_RANGE = (0.0, 0.9)
 
-PREFERRED_CIE_RGB_SPACES: tuple[str, ...] = (
-    "sRGB",
-    "ITU-R BT.709",
-    "Display P3",
-    "DCI-P3",
-    "Adobe RGB (1998)",
-    "ITU-R BT.2020",
-    "ACEScg",
-    "ACES2065-1",
-)
-
 PREFERRED_CIE_WHITEPOINTS: tuple[str, ...] = ("D50", "D55", "D60", "D65", "D75", "DCI-P3")
 
 
@@ -86,10 +75,8 @@ class CieXyViewData:
 
 
 def available_cie_rgb_space_names() -> tuple[str, ...]:
-    """Return package-backed RGB space names with common spaces first."""
-    preferred = tuple(name for name in PREFERRED_CIE_RGB_SPACES if name in RGB_COLOURSPACES)
-    remaining = tuple(name for name in RGB_COLOURSPACES.keys() if name not in preferred)
-    return preferred + remaining
+    """Return package-backed RGB space names in alphabetical order."""
+    return tuple(sorted(RGB_COLOURSPACES.keys(), key=str.casefold))
 
 
 def available_cie_whitepoint_names() -> tuple[str, ...]:
@@ -123,7 +110,7 @@ def get_cie_rgb_space(name: str) -> CieRgbSpace:
 
 
 def available_cie_gamut_overlays() -> tuple[CieGamutOverlay, ...]:
-    """Return package-backed gamut overlays with common spaces first."""
+    """Return package-backed gamut overlays in alphabetical order."""
     return tuple(
         CieGamutOverlay(
             name=space.name,

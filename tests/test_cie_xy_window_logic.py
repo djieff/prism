@@ -94,7 +94,7 @@ def _make_window(mode: str = "A") -> CieXyWindow:
     window._mode = mode
     window._buffer_a = None
     window._buffer_b = None
-    window._overlay_names = ("sRGB", "Display P3", "ITU-R BT.2020")
+    window._overlay_names = ("sRGB", "ACEScg", "ARRI Wide Gamut 4")
     window._whitepoint_name = "D65"
     window._trace_color_mode = "boosted"
     window._plot_a = _PlotStub()
@@ -103,6 +103,16 @@ def _make_window(mode: str = "A") -> CieXyWindow:
     window._on_drop_file = None
     window._unsupported_main_mode = None
     return window
+
+
+def test_default_gamut_overlays_cover_display_aces_and_camera_spaces() -> None:
+    window = _make_window("A")
+
+    assert window.current_gamut_overlay_names() == (
+        "sRGB",
+        "ACEScg",
+        "ARRI Wide Gamut 4",
+    )
 
 
 def test_refresh_mode_a_shows_a_only(monkeypatch) -> None:
