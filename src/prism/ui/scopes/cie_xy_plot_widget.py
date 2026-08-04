@@ -111,7 +111,7 @@ class CieXyPlotWidget(QWidget):
         self._density_image_buffer: np.ndarray | None = None
         self._overlay_names: tuple[str, ...] = ()
         self._whitepoint: CieWhitePoint | None = get_cie_whitepoint("D65")
-        self._trace_color_mode: TraceColorMode = "boosted"
+        self._trace_color_mode: TraceColorMode = "normal"
         self._spectral_locus = spectral_locus_xy()
         self._horseshoe_polygon = closed_spectral_locus_polygon(self._spectral_locus)
         self.setMinimumSize(320, 320)

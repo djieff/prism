@@ -18,7 +18,20 @@ from prism.core.scopes.waveform_science import (
     waveform_y_prime_coefficients,
 )
 
-VectorscopeColorMode = Literal["Teal", "Source Color"]
+VectorscopeColorMode = Literal["Teal", "Normal", "Boosted"]
+
+
+def _boosted_vectorscope_rgb(source_rgb: np.ndarray) -> np.ndarray:
+    """Return brighter, more saturated source RGB for vectorscope rendering."""
+    rgb = np.clip(np.asarray(source_rgb, dtype=np.float32), 0.0, 1.0)
+    luma = (
+        (rgb[:, :, 0:1] * np.float32(0.2126))
+        + (rgb[:, :, 1:2] * np.float32(0.7152))
+        + (rgb[:, :, 2:3] * np.float32(0.0722))
+    )
+    saturated = luma + ((rgb - luma) * np.float32(2.2))
+    brightened = np.power(np.clip(saturated, 0.0, 1.0), np.float32(0.82))
+    return np.ascontiguousarray(brightened, dtype=np.float32)
 
 
 @dataclass(frozen=True)
@@ -36,7 +49,7 @@ class VectorscopePlotWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._trace: VectorscopeTrace | None = None
-        self._color_mode: VectorscopeColorMode = "Teal"
+        self._color_mode: VectorscopeColorMode = "Normal"
         self._drop_highlight = False
         self._heatmap: QImage | None = None
         self._heatmap_buffer: np.ndarray | None = None
@@ -59,6 +72,8 @@ class VectorscopePlotWidget(QWidget):
 
     def set_color_mode(self, mode: VectorscopeColorMode) -> None:
         """Set trace color presentation mode."""
+        if mode not in ("Teal", "Normal", "Boosted"):
+            raise ValueError(f"Unsupported vectorscope color mode: {mode!r}")
         if self._color_mode == mode:
             return
         self._color_mode = mode
@@ -111,31 +126,51 @@ class VectorscopePlotWidget(QWidget):
         maximum = float(np.max(density))
         if maximum > 0.0:
             density = density * np.float32(1.0 / maximum)
+        filtered_color_density = None
         if maximum > 0.0:
             from scipy.ndimage import gaussian_filter
 
             density = gaussian_filter(density, sigma=1.1, mode="constant", output=np.float32)
+            if self._color_mode in ("Normal", "Boosted"):
+                color_density = self._validated_color_density(trace.color_density, density.shape)
+                filtered_color_density = np.zeros_like(color_density)
+                for channel in range(3):
+                    filtered_color_density[:, :, channel] = gaussian_filter(
+                        color_density[:, :, channel],
+                        sigma=1.1,
+                        mode="constant",
+                        output=np.float32,
+                    )
             filtered_maximum = float(np.max(density))
             if filtered_maximum > 0.0:
                 density = density * np.float32(1.0 / filtered_maximum)
-        density = np.power(np.clip(density, 0.0, 1.0), 0.45)
+                if filtered_color_density is not None:
+                    filtered_color_density = filtered_color_density * np.float32(1.0 / filtered_maximum)
+        elif self._color_mode in ("Normal", "Boosted"):
+            filtered_color_density = np.zeros((*density.shape, 3), dtype=np.float32)
 
-        if self._color_mode == "Source Color":
-            color_density = np.asarray(trace.color_density, dtype=np.float32)
-            if color_density.shape != (*density.shape, 3):
-                raise ValueError("Expected vectorscope color density shape (H, W, 3)")
-            if not np.all(np.isfinite(color_density)):
-                raise ValueError("Vectorscope color density must contain only finite values")
-            rgb = np.clip(color_density, 0.0, 1.0)
-            color_maximum = float(np.max(rgb))
-            if color_maximum > 0.0:
-                rgb = rgb * np.float32(1.0 / color_maximum)
-            rgb = np.power(rgb, 0.55)
+        linear_density = np.clip(density, 0.0, 1.0)
+        display_density = np.power(linear_density, 0.45)
+
+        if self._color_mode in ("Normal", "Boosted"):
+            if filtered_color_density is None:
+                filtered_color_density = self._validated_color_density(trace.color_density, linear_density.shape)
+            source_rgb = np.divide(
+                filtered_color_density,
+                np.maximum(linear_density[:, :, None], np.float32(1e-6)),
+                out=np.zeros_like(filtered_color_density),
+                where=linear_density[:, :, None] > np.float32(1e-6),
+            )
+            if self._color_mode == "Boosted":
+                source_rgb = _boosted_vectorscope_rgb(source_rgb)
+            else:
+                source_rgb = np.clip(source_rgb, 0.0, 1.0)
+            rgb = source_rgb * display_density[:, :, None]
         else:
-            rgb = np.zeros((*density.shape, 3), dtype=np.float32)
-            rgb[:, :, 0] = density * np.float32(0.25)
-            rgb[:, :, 1] = density * np.float32(0.95)
-            rgb[:, :, 2] = density * np.float32(0.72)
+            rgb = np.zeros((*display_density.shape, 3), dtype=np.float32)
+            rgb[:, :, 0] = display_density * np.float32(0.25)
+            rgb[:, :, 1] = display_density * np.float32(0.95)
+            rgb[:, :, 2] = display_density * np.float32(0.72)
 
         rgb = np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8)
         self._heatmap_buffer = np.ascontiguousarray(rgb)
@@ -147,6 +182,16 @@ class VectorscopePlotWidget(QWidget):
             int(self._heatmap_buffer.strides[0]),
             QImage.Format.Format_RGB888,
         ).copy()
+
+    def _validated_color_density(self, color_density: np.ndarray, density_shape: tuple[int, int]) -> np.ndarray:
+        rgb = np.asarray(color_density, dtype=np.float32)
+        if rgb.shape != (*density_shape, 3):
+            raise ValueError("Expected vectorscope color density shape (H, W, 3)")
+        if not np.all(np.isfinite(rgb)):
+            raise ValueError("Vectorscope color density must contain only finite values")
+        if np.any(rgb < 0.0):
+            raise ValueError("Vectorscope color density must be non-negative")
+        return rgb
 
     def _draw_graticule(self, painter: QPainter, scope_rect: QRectF) -> None:
         center = scope_rect.center()

@@ -110,8 +110,8 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Hosts a `White Point` selector for `None`, `D50`, `D55`, `D60`, `D65`,
   `D75`, and `DCI-P3` marker overlays without changing image chromaticity
   analysis.
-- Hosts a `Trace Color` selector for `Normal` or `Boosted` trace-color
-  rendering without changing image chromaticity analysis.
+- Hosts a `Trace Color` selector, defaulting to `Normal`, for normal or boosted
+  trace-color rendering without changing image chromaticity analysis.
 - Consumes per-side float analysis buffers from main window and routes CIE xy
   view data to plot widgets. Buffers are post-OCIO when a transform is active,
   but may be untransformed in bypass/incomplete-config paths.
@@ -139,6 +139,8 @@ It consumes structured/core state and should not embed OCIO processing logic.
 - Supports local scope modes: `A`, `B`, `A|B` (side-by-side).
 - Supports explicit `BT.709` and `BT.2020` standards for component chroma
   calculation.
+- Hosts a `Color` selector, defaulting to `Normal`, for `Teal`, `Normal`, or
+  `Boosted` trace rendering without changing component chroma analysis.
 - Consumes per-side float analysis buffers from main window and routes
   vectorscope data to plot widgets.
 - Mirrors waveform mode sync behavior for `Full (A)`, `Full (B)`, and `Split`;
@@ -146,7 +148,7 @@ It consumes structured/core state and should not embed OCIO processing logic.
 
 ### `scopes/vectorscope_plot_widget.py`
 - Renders normalized chroma density with circular graticule, target boxes, and
-  optional source-color density.
+  optional normal or boosted source-color density.
 - Keeps the component-chroma presentation separate from colourimetric CIE xy
   plotting.
 

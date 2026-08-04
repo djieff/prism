@@ -443,8 +443,9 @@ Behavior:
   * overlays do not change image point computation
 * `White Point` can be set to `None`, `D50`, `D55`, `D60`, `D65`, `D75`, or
   `DCI-P3`; this only changes the marker overlay, not the analyzed image colors
-* `Trace Color` can be set to `Normal` or `Boosted`; this only changes how the
-  density trace colors are rendered for visibility, not xy analysis
+* `Trace Color` defaults to `Normal` and can be set to `Boosted`; this only
+  changes how the density trace colors are rendered for visibility, not xy
+  analysis
 * draws the CIE 1931 xy spectral locus from numerical Colour Science data
 * ignores black samples where chromaticity is undefined
 * clamps sampled RGB values to `[0, 1]` for this first display-normalized monitor

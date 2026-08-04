@@ -80,6 +80,7 @@ def _make_window(mode: str = "A") -> VectorscopeWindow:
     window._mode = mode
     window._buffer_a = None
     window._buffer_b = None
+    window._color_mode = "Normal"
     window._signal_standard = DEFAULT_WAVEFORM_SIGNAL_STANDARD
     window._plot_a = _PlotStub()
     window._plot_b = _PlotStub()
@@ -87,6 +88,12 @@ def _make_window(mode: str = "A") -> VectorscopeWindow:
     window._on_drop_file = None
     window._unsupported_main_mode = None
     return window
+
+
+def test_default_color_mode_is_normal() -> None:
+    window = _make_window("A")
+
+    assert window._color_mode == "Normal"
 
 
 def test_refresh_mode_a_shows_a_only(monkeypatch) -> None:
@@ -186,13 +193,13 @@ def test_signal_standard_change_rebuilds_current_traces(monkeypatch) -> None:
 
 def test_color_mode_change_updates_both_plots() -> None:
     window = _make_window("A")
-    window._color_combo = _ComboStub("Source Color")
+    window._color_combo = _ComboStub("Boosted")
 
     window._on_color_mode_changed()
 
-    assert window._color_mode == "Source Color"
-    assert window._plot_a.color_mode == "Source Color"
-    assert window._plot_b.color_mode == "Source Color"
+    assert window._color_mode == "Boosted"
+    assert window._plot_a.color_mode == "Boosted"
+    assert window._plot_b.color_mode == "Boosted"
 
 
 def test_target_side_for_window_pos_mode_a_and_b() -> None:

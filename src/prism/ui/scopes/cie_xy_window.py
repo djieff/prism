@@ -44,7 +44,7 @@ class CieXyWindow(QWidget):
             "ARRI Wide Gamut 4",
         )
         self._whitepoint_name: str | None = "D65"
-        self._trace_color_mode: TraceColorMode = "boosted"
+        self._trace_color_mode: TraceColorMode = "normal"
         self._on_drop_file = on_drop_file
         self._on_source_mode_changed = on_source_mode_changed
         self._unsupported_main_mode: str | None = None

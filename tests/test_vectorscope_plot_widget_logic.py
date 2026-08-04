@@ -28,6 +28,24 @@ def _trace() -> VectorscopeTrace:
     )
 
 
+def _muted_trace() -> VectorscopeTrace:
+    density = np.zeros((5, 5), dtype=np.float32)
+    density[2, 2] = 1.0
+    color_density = np.zeros((5, 5, 3), dtype=np.float32)
+    color_density[2, 2, :] = (0.65, 0.35, 0.30)
+    coefficients = (0.2126, 0.7152, 0.0722)
+    return VectorscopeTrace(
+        x_values=np.asarray([0.0], dtype=np.float32),
+        y_values=np.asarray([0.0], dtype=np.float32),
+        density=density,
+        color_density=color_density,
+        source_size=(8, 6),
+        signal_standard="ITU-R BT.709",
+        y_prime_coefficients=coefficients,
+        plot_scale=vectorscope_chroma_scale(coefficients),
+    )
+
+
 def test_rebuild_heatmap_creates_cached_qimage_and_buffer() -> None:
     trace = _trace()
     widget = VectorscopePlotWidget.__new__(VectorscopePlotWidget)
@@ -132,9 +150,35 @@ def test_set_signal_standard_updates_empty_graticule_targets() -> None:
     assert before[0].x != pytest.approx(after[0].x)
 
 
-def test_set_color_mode_rebuilds_heatmap_from_source_color() -> None:
+def test_normal_color_mode_preserves_unboosted_source_color() -> None:
     widget = VectorscopePlotWidget.__new__(VectorscopePlotWidget)
-    widget._trace = _trace()
+    widget._color_mode = "Normal"
+    widget._heatmap = None
+    widget._heatmap_buffer = None
+
+    widget._rebuild_heatmap(_muted_trace())
+
+    assert widget._heatmap_buffer[2, 2, 0] == pytest.approx(166, abs=1)
+    assert widget._heatmap_buffer[2, 2, 1] == pytest.approx(89, abs=1)
+    assert widget._heatmap_buffer[2, 2, 2] == pytest.approx(76, abs=1)
+
+
+def test_normal_color_mode_uses_smoothed_density_footprint() -> None:
+    widget = VectorscopePlotWidget.__new__(VectorscopePlotWidget)
+    widget._color_mode = "Normal"
+    widget._heatmap = None
+    widget._heatmap_buffer = None
+
+    widget._rebuild_heatmap(_muted_trace())
+
+    assert widget._heatmap_buffer[2, 1, 0] > 0
+    assert widget._heatmap_buffer[2, 1, 0] > widget._heatmap_buffer[2, 1, 1]
+    assert widget._heatmap_buffer[0, 0, 0] < widget._heatmap_buffer[2, 1, 0]
+
+
+def test_set_color_mode_rebuilds_heatmap_from_boosted_source_color() -> None:
+    widget = VectorscopePlotWidget.__new__(VectorscopePlotWidget)
+    widget._trace = _muted_trace()
     widget._color_mode = "Teal"
     widget._heatmap = None
     widget._heatmap_buffer = None
@@ -143,12 +187,20 @@ def test_set_color_mode_rebuilds_heatmap_from_source_color() -> None:
     widget._rebuild_heatmap(widget._trace)
     teal = widget._heatmap_buffer.copy()
 
-    widget.set_color_mode("Source Color")
+    widget.set_color_mode("Boosted")
 
-    assert widget._color_mode == "Source Color"
+    assert widget._color_mode == "Boosted"
     assert widget._heatmap_buffer is not None
-    assert widget._heatmap_buffer[2, 2, 0] > widget._heatmap_buffer[2, 2, 1]
+    assert widget._heatmap_buffer[2, 2, 0] > 166
     assert not np.array_equal(teal, widget._heatmap_buffer)
+
+
+def test_set_color_mode_rejects_unknown_mode() -> None:
+    widget = VectorscopePlotWidget.__new__(VectorscopePlotWidget)
+    widget._color_mode = "Teal"
+
+    with pytest.raises(ValueError, match="Unsupported vectorscope color mode"):
+        widget.set_color_mode("Source Color")  # type: ignore[arg-type]
 
 
 def test_scope_rect_is_centered_square_with_margin() -> None:

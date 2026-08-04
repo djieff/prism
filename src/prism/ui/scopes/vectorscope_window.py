@@ -39,7 +39,7 @@ class VectorscopeWindow(QWidget):
         self._buffer_a: np.ndarray | None = None
         self._buffer_b: np.ndarray | None = None
         self._mode: VectorscopeMode = "A"
-        self._color_mode: VectorscopeColorMode = "Teal"
+        self._color_mode: VectorscopeColorMode = "Normal"
         self._signal_standard: WaveformSignalStandard = DEFAULT_WAVEFORM_SIGNAL_STANDARD
         self._on_drop_file = on_drop_file
         self._on_source_mode_changed = on_source_mode_changed
@@ -68,7 +68,9 @@ class VectorscopeWindow(QWidget):
         controls.addWidget(QLabel("Color", self))
         self._color_combo = QComboBox(self)
         self._color_combo.addItem("Teal", "Teal")
-        self._color_combo.addItem("Source Color", "Source Color")
+        self._color_combo.addItem("Normal", "Normal")
+        self._color_combo.addItem("Boosted", "Boosted")
+        self._color_combo.setCurrentIndex(self._color_combo.findData(self._color_mode))
         self._color_combo.currentIndexChanged.connect(self._on_color_mode_changed)
         controls.addWidget(self._color_combo)
         controls.addStretch(1)
