@@ -63,6 +63,7 @@ Prism aims to make that process faster and more direct.
 * Edit OCIO context variables live
 * Inspect LUT transfer curves in a dedicated modeless LUT window
 * Inspect waveform scopes in a dedicated modeless waveform monitor
+* Inspect vectorscope chroma in a dedicated modeless monitor
 * Inspect CIE xy chromaticity and RGB gamut fit in a dedicated modeless monitor
 * Navigate synchronized A/B views
 * Toggle transform bypass per image
@@ -94,7 +95,7 @@ A prebuilt Windows desktop build is available from the GitHub Releases page.
 Download:
 
 ```text
-Prism-1.2.2-windows-x64.zip
+Prism-1.5.0-windows-x64.zip
 ```
 
 Extract the zip, then run:
@@ -285,7 +286,8 @@ Useful when image edges become difficult to read against the viewer background.
 
 Open from:
 
-* `View -> LUT Inspection` or `Drop LUT in main_window`
+* `View -> LUT Inspection`
+* drag-and-drop a LUT file into the main window
 
 ![LUT_inspector_default.png](docs/images/readme/LUT_inspector_default.png)
 
@@ -411,11 +413,63 @@ Behavior:
 
 ---
 
+# Vectorscope
+
+Open from:
+
+* `View -> Monitoring -> Vectorscope`
+
+![prism_monitoring_vectorscope_selection.png](docs/images/readme/prism_monitoring_vectorscope_selection.png)
+![prism_vectorscope_default_ui.png](docs/images/readme/prism_vectorscope_default_ui.png)
+
+Behavior:
+
+* opens as a modeless utility window
+* inspects each side's float RGB analysis buffer:
+  * post-OCIO output when a transform is active
+  * loaded source data when transform setup is incomplete or bypassed
+  * before global exposure/luminance and channel-view presentation controls
+* source modes mirror main viewer compare naming:
+  * `Full (A)`
+  * `Full (B)`
+  * `Split`
+* source mode is synchronized with main compare mode for supported modes:
+  * changing mode in vectorscope updates main viewer mode
+  * changing main viewer mode updates vectorscope mode
+  * opening vectorscope initializes from current main mode
+* `Wipe` and `Diff` are currently unsupported in vectorscope mode mapping:
+  * vectorscope shows blank graphs with an explicit unsupported-mode message
+* `Standard` can be set to `BT.709` or `BT.2020` for encoded component-chroma
+  target positions:
+  * defaults to `BT.709`
+  * the standard is selected explicitly and is not inferred from OCIO names
+* `Color` defaults to `Normal` and can be set to:
+  * `Teal`
+  * `Normal`
+  * `Boosted`
+* `Normal` and `Boosted` only change how source-color density is rendered for
+  readability; component-chroma analysis and target positions are unchanged
+* applies a small SciPy Gaussian filter to rendering copies for trace
+  readability; raw vectorscope density data remains unchanged
+* supports drag-and-drop image loading directly from vectorscope:
+  * `Full (A)` drops load side `A`
+  * `Full (B)` drops load side `B`
+  * `Split` drops route by pane (`left -> A`, `right -> B`)
+  * dropped images are loaded into the main viewer, so vectorscope and viewer
+    state remain synchronized
+
+![prism_vectorscope_monitor.png](docs/images/readme/prism_vectorscope_monitor.png)
+
+---
+
 # CIE xy Chromaticity Monitor
 
 Open from:
 
 * `View -> Monitoring -> CIE xy Chromaticity`
+
+![prism_monitoring_cie_xy_selection.png](docs/images/readme/prism_monitoring_cie_xy_selection.png)
+![prism_cie_xy_default_ui.png](docs/images/readme/prism_cie_xy_default_ui.png)
 
 Behavior:
 
@@ -438,6 +492,8 @@ Behavior:
   interpretation; there is no separate input-colorspace control in the monitor
 * three global gamut overlay controls draw reference RGB triangles:
   * each can be set to `None`
+  * available Colour Science RGB spaces are listed alphabetically
+  * default overlays are `sRGB`, `ACEScg`, and `ARRI Wide Gamut 4`
   * duplicate overlay selections are drawn once
   * selected overlays appear on A, B, and both panes in `Split`
   * overlays do not change image point computation
@@ -455,6 +511,8 @@ Behavior:
   * `Split` drops route by pane (`left -> A`, `right -> B`)
   * dropped images are loaded into the main viewer, so monitor and viewer state
     remain synchronized
+
+![prism_cie_xy_monitor.png](docs/images/readme/prism_cie_xy_monitor.png)
 
 ---
 
@@ -553,14 +611,14 @@ Useful for:
 
 Prism includes sample files to validate setup quickly:
 
-* Sample images: `samples/images/`
+* Sample images: `samples/media/still/`
 * Sample OCIO config: `samples/ocio_config/`
-* Sample LUTs: `sample/LUTs`
+* Sample LUTs: `samples/LUTs/`
 
 Quick smoke test:
 
 1. Launch `prism`
-2. Load image A and B from `samples/images/`
+2. Load image A and B from `samples/media/still/`
 3. Load config from `samples/ocio_config/`
 4. Switch between `Split`, `Wipe`, `Full (A)`, `Full (B)`, and `Diff`
 
