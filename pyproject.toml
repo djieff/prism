@@ -32,9 +32,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 "prism.ui" = ["assets/icons/*.png", "assets/icons/*.ico", "assets/images/*.png"]
 
-[tool.setuptools.dynamic]
-version = {attr = "prism.__version__"}
-
 [tool.ruff]
 target-version = "py311"
 line-length = 100

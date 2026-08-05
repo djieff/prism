@@ -10,7 +10,7 @@ Prism uses setuptools with `pyproject.toml` and `src/` layout discovery.
 
 Key metadata:
 - project name: `prism-viewer`
-- version source: `prism.__version__` (dynamic)
+- version source: `[project].version` in `pyproject.toml`
 - Python requirement: `>=3.11,<3.15`
 - console script: `prism = prism.main:main`
 
